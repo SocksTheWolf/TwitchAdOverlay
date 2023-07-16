@@ -19,8 +19,16 @@
 	  "type": "text",
 	  "label": "Twitch OAuth Token"
     },
-	"sbDebugMode": {
-		"group": "Streamer.bot",
+	"singleAdLength": {
+      "group": "Functionality",
+	  "type": "number",
+	  "label": "Twitch OAuth Token",
+	  "value": 30,
+	  "min": 0,
+      "step": 5
+    },
+	"debugMode": {
+		"group": "Functionality",
 		"type": "dropdown",
 		"label": "Debug Mode",
 		"value": "On",
@@ -29,6 +37,16 @@
 			"Off": "Off"
 		}
 	},
+	"playAudioOnAd": {
+      "group": "Functionality",
+	  "type": "dropdown",
+	  "label": "Play Audio Effect when Ad Runs",
+	  "value": "Yes",
+	  "options": {
+			"Yes": "Yes",
+			"No": "No"
+	   }
+    },
 	"sbAdRun": {
 		"group": "Streamer.bot",
 		"type": "text",

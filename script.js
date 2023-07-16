@@ -1,58 +1,111 @@
-///////////////////////////
-// STREAMELEMENTS FIELDS //
-///////////////////////////
-
-let sbServerAddress = "127.0.0.1";
-let sbServerPort = "8080";
-let sbDebugMode = false;
+/////////////////
+// GLOBAL VARS //
+/////////////////
+let ws;
 let sbAdRun;
 let sbAdMidRoll;
+let hasStarted = false;
+const twitchPubSubServer = "wss://pubsub-edge.twitch.tv";
+
+///////////////////
+// CONFIG FIELDS //
+///////////////////
+let debugMode = false;
 let barColor = "#a970ff";
 let noticeText = "Twitch Ad Break";
 let noticeColor = "#ffffff";
 let lineThickness = 10;
-let barPosition = "Bottom";			// None, Bottom, Top, Left, Right
+let barPosition = "bottom";			// None, Bottom, Top, Left, Right
 let timerPosition = "Top Left";		// None, Top Left, Top Right, Bottom Left, Bottom Right
-let showMidRollCountdown = "No";	// No, Yes
-let testDuration = 5;
+let singleAdLength = 30;
 let usingTwitch = true;
 let playAudioOnAd = true;
 let twitchUserID = "";
 // Needs scopes: channel:edit:commercial channel_commercial channel_read
 let twitchOAuthToken = "";
 
+/////////////////////
+// SB ONLY CONFIGS //
+/////////////////////
+let sbServerAddress = "127.0.0.1";
+let sbServerPort = "8080";
+let showMidRollCountdown = "No";	// No, Yes
+let testDuration = 5;
 
-//////////////////
-// CHANNEL VARS //
-//////////////////
-if (twitchUserID === "") {
-	twitchUserID = "753911692";
+/////////////////////
+// CONFIG PARSING //
+////////////////////
+function GetBooleanValueFromSettings(setting) {
+	if (typeof(setting) === "string") {
+		var LowerString = setting.toLowerCase();
+		return LowerString === "yes" || LowerString == "on";
+	}
+	else
+		return setting;
 }
 
-if (twitchOAuthToken === "") {
-	twitchOAuthToken = "";
+function SetConfigFromBlob(fieldData) {	
+	debugMode = GetBooleanValueFromSettings(fieldData.debugMode);
+	usingTwitch = GetBooleanValueFromSettings(fieldData.usingTwitch);
+	barColor = fieldData.barColor;
+	noticeColor = fieldData.noticeColor;
+	lineThickness = fieldData.lineThickness;
+	barPosition = fieldData.barPosition.toLowerCase();
+	timerPosition = fieldData.timerPosition;
+
+	usingTwitch = GetBooleanValueFromSettings(fieldData.usingTwitch);
+	playAudioOnAd = GetBooleanValueFromSettings(fieldData.playAudioOnAd);
+	twitchUserID = fieldData.twitchUserID;
+	singleAdLength = fieldData.singleAdLength;
+	twitchOAuthToken = fieldData.twitchOAuthToken;
+	noticeText = fieldData.noticeText;
 }
 
-/////////////////
-// GLOBAL VARS //
-/////////////////
+function TwitchSettingsValid() {
+	if (usingTwitch) {
+		if (twitchUserID.length == 0 || !isNumeric(twitchUserID)) {
+			console.warn("Twitch UserID string is not a number!");
+			return false;
+		} else if (twitchOAuthToken.length == 0) {
+			console.warn("Twitch OAuth Token is missing!!");
+			return false;
+		} else {
+			console.log("Twitch config checks out");
+		}
+	}
+	return true;
+}
 
-let ws;
-let singleAdLength = 30;
+// Load up settings from the config system
+try {
+	console.log("Attempting to read local data config");
+	SetConfigFromBlob(configData);
+
+	if (!TwitchSettingsValid())
+		throw "Check config settings";
+	
+} catch (error) {
+	if (IsHostedLocally()) {
+		console.error("Attempted to run file locally but missing config!!");
+		throw "Get a config file";
+	} else {
+		console.log("A config file does not exist. Might be running from StreamElements?");
+	}
+}
 
 ///////////////////////////////////
 // SRTEAMER.BOT WEBSOCKET SERVER //
 ///////////////////////////////////
 
 // This is the main function that connects to the Streamer.bot websocket server
-function connectws() {
+function ConnectStreamerBotWS() {
 	if ("WebSocket" in window) {
 		ws = new WebSocket("ws://" + sbServerAddress + ":" + sbServerPort + "/");
 
 		// Reconnect
 		ws.onclose = function () {
 			SetConnectionStatus(false);
-			setTimeout(connectws, 5000);
+			setTimeout(ConnectStreamerBotWS, 5000);
 		};
 
 		// Connect
@@ -81,12 +134,11 @@ function connectws() {
 				const msg = event.data;
 				const wsdata = JSON.parse(msg);
 
-				if (typeof wsdata.event == "undefined") {
+				if (typeof(wsdata.event) == "undefined")
 					return;
-				}
 
 				// Print data to log for debugging purposes
-				if (sbDebugMode) {
+				if (debugMode) {
 					console.log(wsdata.data);
 					console.log(wsdata.event.type);
 				}
@@ -95,7 +147,6 @@ function connectws() {
 				// See documentation for all events here:
 				// https://wiki.streamer.bot/en/Servers-Clients/WebSocket-Server/Events
 				switch (wsdata.event.source) {
-
 					// Twitch Events
 					case 'Twitch':
 						switch (wsdata.event.type) {
@@ -116,25 +167,30 @@ function connectws() {
 	}
 }
 
+//////////////////////////
+// TWITCH PUBSUB SYSTEM //
+//////////////////////////
+
 function RunTwitchPubSub() {
-  const TwitchPubSub = "wss://pubsub-edge.twitch.tv";
   var awaiting_pong = false;
   let PingPong;
-  let PubSub = new WebSocket(TwitchPubSub);
+  let PubSub = new WebSocket(twitchPubSubServer);
 
-  function ForceReconnect() {
+  function ForcePubSubReconnect() {
       awaiting_pong = false;
       SetConnectionStatus(false);
       PubSub.close();
-      PubSub = new WebSocket(TwitchPubSub);
+      PubSub = new WebSocket(twitchPubSubServer);
   }
 
   PubSub.onmessage = function(event) {
-      console.log(event);
+	  if (debugMode)
+		console.log(event);
+
       var message = JSON.parse(event.data);
       if (message.type == "RECONNECT") {
           console.log("force reconnection!");
-          ForceReconnect();
+          ForcePubSubReconnect();
       } else if (message.type == "PONG") {
           awaiting_pong = false;
 		  console.log("Got PONG");
@@ -149,11 +205,11 @@ function RunTwitchPubSub() {
 		  console.log("Message data was undefined: "+message);
 	  } else if (message.type == "MESSAGE") {
 		var internalMessage = JSON.parse(message.data.message);
-        switch(message.data.topic.slice(0, -1 * (twitchUserID.length+1))){
+        switch (message.data.topic.slice(0, -1 * (twitchUserID.length+1))){
           case 'video-playback-by-id':
             if (internalMessage.type == "commercial") {
               AdRun(internalMessage);
-            } else {
+            } else if (debugMode) {
 			  console.log(internalMessage.type);
 			}
             break;
@@ -172,20 +228,18 @@ function RunTwitchPubSub() {
           }
       }))
       PingPong = setInterval(() => {
-          if (PubSub.readyState == 2 || PubSub.readyState == 3)
-          {
+          if (PubSub.readyState == 2 || PubSub.readyState == 3) {
               // Websocket is closing, let's reconnect instead
-              ForceReconnect();
+              ForcePubSubReconnect();
           } else {
               PubSub.send(JSON.stringify({type:"PING"}));
               awaiting_pong = true;
 
-              // Response not received in time
+              // Response not received within 15s time
               setTimeout(() => {
-                  if (awaiting_pong)
-                  {
+                  if (awaiting_pong) {
                       awaiting_pong = false;
-                      ForceReconnect();
+                      ForcePubSubReconnect();
                   }
               }, 1000 * 15);
           }
@@ -196,10 +250,9 @@ function RunTwitchPubSub() {
 	  if (PingPong !== "undefined") {
 		clearInterval(PingPong);
 	  }
-      ForceReconnect();
+      ForcePubSubReconnect();
   }
 }
-
 
 ///////////////////////
 // TWITCH AD OVERLAY //
@@ -212,10 +265,9 @@ function AdRun(data) {
 }
 
 function AdMidRoll(data) {
-	if (showMidRollCountdown != "Yes")
+	if (!showMidRollCountdown)
 		return;
 
-	//MidRollAnimation(data.length);
 	MidRollAnimation(5);
 }
 
@@ -227,22 +279,22 @@ function TimerBarAnimation(adLength) {
 	timerBar.style.position = "absolute";
 
 	switch (barPosition) {
-		case "None":
+		case "none":
 			timerBar.style.display = "none";
 			break;
-		case "Bottom":
+		default:
+		case "bottom":
 			timerBar.style.height = lineThickness + "px";
 			timerBar.style.bottom = "0px";
 			timerBar.style.left = "0px";
 
 			// Start Animation
 			tl = new TimelineMax();
-			tl
-				.to(timerBar, 0.5, { width: window.innerWidth + "px", ease: Cubic.ease })
+			tl.to(timerBar, 0.5, { width: window.innerWidth + "px", ease: Cubic.ease })
 				.to(timerBar, adLength, { width: "0px", ease: Linear.easeNone })
 			break;
 
-		case "Top":
+		case "top":
 			timerBar.style.height = lineThickness + "px";
 			timerBar.style.top = "0px";
 			timerBar.style.left = "0px";
@@ -253,7 +305,7 @@ function TimerBarAnimation(adLength) {
 				.to(timerBar, adLength, { width: "0px", ease: Linear.easeNone })
 			break;
 
-		case "Left":
+		case "left":
 			timerBar.style.width = lineThickness + "px";
 			timerBar.style.bottom = "0px";
 			timerBar.style.left = "0px";
@@ -264,7 +316,7 @@ function TimerBarAnimation(adLength) {
 				.to(timerBar, adLength, { height: "0px", ease: Linear.easeNone })
 			break;
 
-		case "Right":
+		case "right":
 			timerBar.style.width = lineThickness + "px";
 			timerBar.style.bottom = "0px";
 			timerBar.style.right = "0px";
@@ -372,7 +424,6 @@ function MidRollAnimation(countdownLength) {
 
 function SetVisibility(isVisible) {
 	let hugeTittiesContainer = document.getElementById("hugeTittiesContainer");
-
 	var tl = new TimelineMax();
 	tl.to(hugeTittiesContainer, 0.5, { opacity: isVisible, ease: Linear.easeNone });
 }
@@ -380,7 +431,6 @@ function SetVisibility(isVisible) {
 function ShowMidRollCountdown(isVisible) {
 	let midRollContainer = document.getElementById("midRollContainer");
 	let width = midRollContainer.getBoundingClientRect().width;
-
 	var tl = new TimelineMax();
 
 	if (isVisible) {
@@ -395,9 +445,9 @@ function ShowMidRollCountdown(isVisible) {
 //////////////////////
 
 function sbDoAction(ws, actionName, data) {
-  	if (usingTwitch) {
-       return; 
-    }
+  	if (usingTwitch)
+       return;
+   
 	let request = JSON.stringify({
 		request: "DoAction",
 		id: "subscribe-do-action-id",
@@ -408,8 +458,18 @@ function sbDoAction(ws, actionName, data) {
 			data
 		}
 	});
-
 	ws.send(request);
+}
+
+function IsHostedLocally() {
+	return location.protocol === 'file:';
+}
+
+// Taken from StackOverflow: https://stackoverflow.com/a/175787
+function isNumeric(str) {
+  if (typeof str != "string") return false // we only process strings!  
+  return !isNaN(str) && // use type coercion to parse the _entirety_ of the string (`parseFloat` alone does not do this)...
+         !isNaN(parseFloat(str)) // ...and ensure strings of whitespace fail
 }
 
 String.prototype.toHHMMSS = function () {
@@ -425,26 +485,22 @@ String.prototype.toHHMMSS = function () {
 	return minutes + ':' + seconds;
 }
 
-function IsNullOrWhitespace(str) {
-	return /^\s*$/.test(str);
-}
-
 function RunOverlay() {
+	if (hasStarted)
+		return;
+	
 	let noticeTextFix = document.getElementById("label");
 	noticeTextFix.innerHTML = noticeText;
+	hasStarted = true;
 	
 	if (usingTwitch) {
 	  console.log("Using Twitch PubSub");
 	  RunTwitchPubSub();
 	} else {
 	  console.log("Using streamerbot");
-	  connectws();
+	  ConnectStreamerBotWS();
 	}
 }
-
-///////////////////////////////////
-// STREAMER.BOT WEBSOCKET STATUS //
-///////////////////////////////////
 
 function SetConnectionStatus(connected) {
 	let statusContainer = document.getElementById("statusContainer");
@@ -452,8 +508,7 @@ function SetConnectionStatus(connected) {
 		statusContainer.style.background = "#2FB774";
 		statusContainer.innerText = "Connected!";
 		var tl = new TimelineMax();
-		tl
-			.to(statusContainer, 2, { opacity: 0, ease: Linear.easeNone })
+		tl.to(statusContainer, 2, { opacity: 0, ease: Linear.easeNone })
 		//.call(removeElement, [div]);
 	} else {
 		statusContainer.style.background = "#D12025";
@@ -468,23 +523,13 @@ function SetConnectionStatus(connected) {
 
 window.addEventListener('onWidgetLoad', function (obj) {
 	const fieldData = obj.detail.fieldData;
+	SetConfigFromBlob(fieldData);
 	sbServerAddress = fieldData.sbServerAddress;
 	sbServerPort = fieldData.sbServerPort;
-	sbDebugMode = fieldData.sbDebugMode == "On" ? true : false;
-	usingTwitch = fieldData.usingTwitch == "Yes" ? true : false;
 	sbAdRun = fieldData.sbAdRun;
 	sbAdMidRoll = fieldData.sbAdMidRoll;
-	barColor = fieldData.barColor;
-	noticeColor = fieldData.noticeColor;
-	lineThickness = fieldData.lineThickness;
-	barPosition = fieldData.barPosition;
-	timerPosition = fieldData.timerPosition;
 	showMidRollCountdown = fieldData.showMidRollCountdown;
 	testDuration = fieldData.testDuration;
-	twitchUserID = fieldData.twitchUserID;
-	twitchOAuthToken = fieldData.twitchOAuthToken;
-	noticeText = fieldData.noticeText;
-
 	RunOverlay();
 });
 
@@ -508,4 +553,5 @@ window.addEventListener('onEventReceived', function (obj) {
 	}
 });
 
-RunOverlay();
+if (IsHostedLocally())
+	RunOverlay();
