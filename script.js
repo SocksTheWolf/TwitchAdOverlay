@@ -49,15 +49,18 @@ function SetConfigFromBlob(fieldData) {
 	usingTwitch = GetBooleanValueFromSettings(fieldData.usingTwitch);
 	barColor = fieldData.barColor;
 	noticeColor = fieldData.noticeColor;
-	lineThickness = fieldData.lineThickness;
+	if (isNumeric(fieldData.lineThickness))
+		lineThickness = Number(fieldData.lineThickness);
+	
 	barPosition = fieldData.barPosition.toLowerCase();
 	timerPosition = fieldData.timerPosition;
 
 	usingTwitch = GetBooleanValueFromSettings(fieldData.usingTwitch);
 	playAudioOnAd = GetBooleanValueFromSettings(fieldData.playAudioOnAd);
-	twitchUserID = fieldData.twitchUserID;
-	singleAdLength = fieldData.singleAdLength;
-	twitchOAuthToken = fieldData.twitchOAuthToken;
+	twitchUserID = fieldData.twitchUserID.trim();
+	if (isNumeric(fieldData.singleAdLength))
+		singleAdLength = Number(fieldData.singleAdLength);
+	twitchOAuthToken = fieldData.twitchOAuthToken.trim();
 	noticeText = fieldData.noticeText;
 }
 
@@ -222,7 +225,7 @@ function RunTwitchPubSub() {
 		PubSub.send(JSON.stringify({
 			type: "LISTEN",
 			data: {
-				topics: ["video-playback-by-id." + twitchUserID],
+				topics: ["video-playback-by-id." + twitchUserID/*, "ads-manager."+twitchUserID+"."+twitchUserID*/],
 				auth_token: twitchOAuthToken
 			}
 		}))
@@ -466,7 +469,10 @@ function IsHostedLocally() {
 
 // Taken from StackOverflow: https://stackoverflow.com/a/175787
 function isNumeric(str) {
-	if (typeof(str) != "string") 
+	var curType = typeof(str);
+	if (curType == "number")
+		return true;
+	else if (curType != "string") 
 		return false; // we only process strings!
 	return !isNaN(str) && !isNaN(parseFloat(str));
 }
