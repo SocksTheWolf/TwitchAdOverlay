@@ -82,12 +82,12 @@ try {
 	SetConfigFromBlob(configData);
 
 	if (!TwitchSettingsValid())
-		throw "Check config settings";
+		throw "Bad Twitch Settings";
 	
 } catch (error) {
 	if (IsHostedLocally()) {
 		console.error("Attempted to run file locally but missing config!!");
-		throw "Get a config file";
+		throw "Check config file and settings!";
 	} else {
 		console.log("A config file does not exist. Might be running from StreamElements?");
 	}
@@ -114,18 +114,17 @@ function ConnectStreamerBotWS() {
 
 			console.log("Subscribe to events");
 			ws.send(
-				JSON.stringify({
-					request: "Subscribe",
-					id: "subscribe-events-id",
-					events: {
-						// This is the list of Streamer.bot websocket events to subscribe to
-						// See full list of events here:
-						// https://wiki.streamer.bot/en/Servers-Clients/WebSocket-Server/Requests
-						twitch: [
-							"AdRun",
-							"AdMidRoll"
-						]
-					}
+			JSON.stringify({
+				request: "Subscribe",
+				id: "subscribe-events-id",
+				events: {
+					// This is the list of Streamer.bot websocket events to subscribe to
+					// See full list of events here:
+					// https://wiki.streamer.bot/en/Servers-Clients/WebSocket-Server/Requests
+					twitch: [
+						"AdRun",
+						"AdMidRoll"
+					]}
 				})
 			);
 
@@ -148,18 +147,18 @@ function ConnectStreamerBotWS() {
 				// https://wiki.streamer.bot/en/Servers-Clients/WebSocket-Server/Events
 				switch (wsdata.event.source) {
 					// Twitch Events
-					case 'Twitch':
-						switch (wsdata.event.type) {
-							case ('AdRun'):
-								sbDoAction(ws, sbAdRun, wsdata.data);
-								AdRun(wsdata.data);
-								break;
-							case ('AdMidRoll'):
-								sbDoAction(ws, sbAdMidRoll, wsdata.data);
-								AdMidRoll(wsdata.data);
-								break;
-						}
+				case 'Twitch':
+					switch (wsdata.event.type) {
+					case ('AdRun'):
+						sbDoAction(ws, sbAdRun, wsdata.data);
+						AdRun(wsdata.data);
 						break;
+					case ('AdMidRoll'):
+						sbDoAction(ws, sbAdMidRoll, wsdata.data);
+						AdMidRoll(wsdata.data);
+						break;
+					}
+					break;
 
 				}
 			};
@@ -172,86 +171,86 @@ function ConnectStreamerBotWS() {
 //////////////////////////
 
 function RunTwitchPubSub() {
-  var awaiting_pong = false;
-  let PingPong;
-  let PubSub = new WebSocket(twitchPubSubServer);
+	var awaiting_pong = false;
+	let PingPong;
+	let PubSub = new WebSocket(twitchPubSubServer);
 
-  function ForcePubSubReconnect() {
-      awaiting_pong = false;
-      SetConnectionStatus(false);
-      PubSub.close();
-      PubSub = new WebSocket(twitchPubSubServer);
-  }
+	function ForcePubSubReconnect() {
+		awaiting_pong = false;
+		SetConnectionStatus(false);
+		PubSub.close();
+		PubSub = new WebSocket(twitchPubSubServer);
+	}
 
-  PubSub.onmessage = function(event) {
-	  if (debugMode)
-		console.log(event);
+	PubSub.onmessage = function(event) {
+		if (debugMode)
+			console.log(event);
 
-      var message = JSON.parse(event.data);
-      if (message.type == "RECONNECT") {
-          console.log("force reconnection!");
-          ForcePubSubReconnect();
-      } else if (message.type == "PONG") {
-          awaiting_pong = false;
-		  console.log("Got PONG");
-      } else if (message.type == "RESPONSE") {
-		  if (message.error) {
-			console.error("Encountered a twitch error: "+message.error);
-		  } else {
-			console.log("Connected!");
-			SetConnectionStatus(true);
-		  }
-  	  } else if (message.data === "undefined") {
-		  console.log("Message data was undefined: "+message);
-	  } else if (message.type == "MESSAGE") {
-		var internalMessage = JSON.parse(message.data.message);
-        switch (message.data.topic.slice(0, -1 * (twitchUserID.length+1))){
-          case 'video-playback-by-id':
-            if (internalMessage.type == "commercial") {
-              AdRun(internalMessage);
-            } else if (debugMode) {
-			  console.log(internalMessage.type);
+		var message = JSON.parse(event.data);
+		if (message.type == "RECONNECT") {
+			console.log("force reconnection!");
+			ForcePubSubReconnect();
+		} else if (message.type == "PONG") {
+			awaiting_pong = false;
+			console.log("Got PONG");
+		} else if (message.type == "RESPONSE") {
+			if (message.error) {
+				console.error("Encountered a twitch error: "+message.error);
+			} else {
+				console.log("Connected!");
+				SetConnectionStatus(true);
 			}
-            break;
-          default:
-            console.log("Unhandled Function")
-        }
-      }	
-  }
+		} else if (message.data === "undefined") {
+			console.log("Message data was undefined: "+message);
+		} else if (message.type == "MESSAGE") {
+			var internalMessage = JSON.parse(message.data.message);
+			switch (message.data.topic.slice(0, -1 * (twitchUserID.length+1))){
+			case 'video-playback-by-id':
+				if (internalMessage.type == "commercial") {
+					AdRun(internalMessage);
+				} else if (debugMode) {
+					console.log(internalMessage.type);
+				}
+				break;
+			default:
+				console.log("Unhandled Function")
+			}
+		}	
+	}
 
-  PubSub.onopen = function(event) {
-      PubSub.send(JSON.stringify({
-          type: "LISTEN",
-          data: {
-              topics: ["video-playback-by-id." + twitchUserID],
-              auth_token: twitchOAuthToken
-          }
-      }))
-      PingPong = setInterval(() => {
-          if (PubSub.readyState == 2 || PubSub.readyState == 3) {
-              // Websocket is closing, let's reconnect instead
-              ForcePubSubReconnect();
-          } else {
-              PubSub.send(JSON.stringify({type:"PING"}));
-              awaiting_pong = true;
+	PubSub.onopen = function(event) {
+		PubSub.send(JSON.stringify({
+			type: "LISTEN",
+			data: {
+				topics: ["video-playback-by-id." + twitchUserID],
+				auth_token: twitchOAuthToken
+			}
+		}))
+		PingPong = setInterval(() => {
+			if (PubSub.readyState == 2 || PubSub.readyState == 3) {
+				// Websocket is closing, let's reconnect instead
+				ForcePubSubReconnect();
+			} else {
+				PubSub.send(JSON.stringify({type:"PING"}));
+				awaiting_pong = true;
 
-              // Response not received within 15s time
-              setTimeout(() => {
-                  if (awaiting_pong) {
-                      awaiting_pong = false;
-                      ForcePubSubReconnect();
-                  }
-              }, 1000 * 15);
-          }
-      }, 1000 * 60 * 3);
-  }
+				// Response not received within 15s time
+				setTimeout(() => {
+					if (awaiting_pong) {
+						awaiting_pong = false;
+						ForcePubSubReconnect();
+					}
+				}, 1000 * 15);
+			}
+		}, 1000 * 60 * 3);
+	}
 
-  PubSub.onclose = function(event) {
-	  if (PingPong !== "undefined") {
-		clearInterval(PingPong);
-	  }
-      ForcePubSubReconnect();
-  }
+	PubSub.onclose = function(event) {
+		if (PingPong !== "undefined") {
+			clearInterval(PingPong);
+		}
+		ForcePubSubReconnect();
+	}
 }
 
 ///////////////////////
@@ -279,53 +278,53 @@ function TimerBarAnimation(adLength) {
 	timerBar.style.position = "absolute";
 
 	switch (barPosition) {
-		case "none":
-			timerBar.style.display = "none";
-			break;
-		default:
-		case "bottom":
-			timerBar.style.height = lineThickness + "px";
-			timerBar.style.bottom = "0px";
-			timerBar.style.left = "0px";
+	case "none":
+		timerBar.style.display = "none";
+		break;
+	default:
+	case "bottom":
+		timerBar.style.height = lineThickness + "px";
+		timerBar.style.bottom = "0px";
+		timerBar.style.left = "0px";
 
-			// Start Animation
-			tl = new TimelineMax();
-			tl.to(timerBar, 0.5, { width: window.innerWidth + "px", ease: Cubic.ease })
-				.to(timerBar, adLength, { width: "0px", ease: Linear.easeNone })
-			break;
+		// Start Animation
+		tl = new TimelineMax();
+		tl.to(timerBar, 0.5, { width: window.innerWidth + "px", ease: Cubic.ease })
+			.to(timerBar, adLength, { width: "0px", ease: Linear.easeNone })
+		break;
 
-		case "top":
-			timerBar.style.height = lineThickness + "px";
-			timerBar.style.top = "0px";
-			timerBar.style.left = "0px";
+	case "top":
+		timerBar.style.height = lineThickness + "px";
+		timerBar.style.top = "0px";
+		timerBar.style.left = "0px";
 
-			// Start Animation
-			tl = new TimelineMax();
-			tl.to(timerBar, 0.5, { width: window.innerWidth + "px", ease: Cubic.ease })
-				.to(timerBar, adLength, { width: "0px", ease: Linear.easeNone })
-			break;
+		// Start Animation
+		tl = new TimelineMax();
+		tl.to(timerBar, 0.5, { width: window.innerWidth + "px", ease: Cubic.ease })
+			.to(timerBar, adLength, { width: "0px", ease: Linear.easeNone })
+		break;
 
-		case "left":
-			timerBar.style.width = lineThickness + "px";
-			timerBar.style.bottom = "0px";
-			timerBar.style.left = "0px";
+	case "left":
+		timerBar.style.width = lineThickness + "px";
+		timerBar.style.bottom = "0px";
+		timerBar.style.left = "0px";
 
-			// Start Animation
-			tl = new TimelineMax();
-			tl.to(timerBar, 0.5, { height: window.innerHeight + "px", ease: Cubic.ease })
-				.to(timerBar, adLength, { height: "0px", ease: Linear.easeNone })
-			break;
+		// Start Animation
+		tl = new TimelineMax();
+		tl.to(timerBar, 0.5, { height: window.innerHeight + "px", ease: Cubic.ease })
+			.to(timerBar, adLength, { height: "0px", ease: Linear.easeNone })
+		break;
 
-		case "right":
-			timerBar.style.width = lineThickness + "px";
-			timerBar.style.bottom = "0px";
-			timerBar.style.right = "0px";
+	case "right":
+		timerBar.style.width = lineThickness + "px";
+		timerBar.style.bottom = "0px";
+		timerBar.style.right = "0px";
 
-			// Start Animation
-			tl = new TimelineMax();
-			tl.to(timerBar, 0.5, { height: window.innerHeight + "px", ease: Cubic.ease })
-				.to(timerBar, adLength, { height: "0px", ease: Linear.easeNone })
-			break;
+		// Start Animation
+		tl = new TimelineMax();
+		tl.to(timerBar, 0.5, { height: window.innerHeight + "px", ease: Cubic.ease })
+			.to(timerBar, adLength, { height: "0px", ease: Linear.easeNone })
+		break;
 	}
 }
 
@@ -333,25 +332,25 @@ function HugeTittiesAnimation(adLength) {
 	let hugeTittiesContainer = document.getElementById("hugeTittiesContainer");
 
 	switch (timerPosition) {
-		case "None":
-			hugeTittiesContainer.style.display = "none";
-			break;
-		case "Top Left":
-			hugeTittiesContainer.style.top = "0px";
-			hugeTittiesContainer.style.left = "0px";
-			break;
-		case "Top Right":
-			hugeTittiesContainer.style.top = "0px";
-			hugeTittiesContainer.style.right = "0px";
-			break;
-		case "Bottom Left":
-			hugeTittiesContainer.style.bottom = "0px";
-			hugeTittiesContainer.style.left = "0px";
-			break;
-		case "Bottom Right":
-			hugeTittiesContainer.style.bottom = "0px";
-			hugeTittiesContainer.style.right = "0px";
-			break;
+	case "None":
+		hugeTittiesContainer.style.display = "none";
+		break;
+	case "Top Left":
+		hugeTittiesContainer.style.top = "0px";
+		hugeTittiesContainer.style.left = "0px";
+		break;
+	case "Top Right":
+		hugeTittiesContainer.style.top = "0px";
+		hugeTittiesContainer.style.right = "0px";
+		break;
+	case "Bottom Left":
+		hugeTittiesContainer.style.bottom = "0px";
+		hugeTittiesContainer.style.left = "0px";
+		break;
+	case "Bottom Right":
+		hugeTittiesContainer.style.bottom = "0px";
+		hugeTittiesContainer.style.right = "0px";
+		break;
 	}
 	
 	// Set the color for the background box
@@ -445,9 +444,9 @@ function ShowMidRollCountdown(isVisible) {
 //////////////////////
 
 function sbDoAction(ws, actionName, data) {
-  	if (usingTwitch)
-       return;
-   
+	if (usingTwitch)
+		return;
+
 	let request = JSON.stringify({
 		request: "DoAction",
 		id: "subscribe-do-action-id",
@@ -462,14 +461,14 @@ function sbDoAction(ws, actionName, data) {
 }
 
 function IsHostedLocally() {
-	return location.protocol === 'file:';
+	return location.protocol === "file:";
 }
 
 // Taken from StackOverflow: https://stackoverflow.com/a/175787
 function isNumeric(str) {
-  if (typeof str != "string") return false // we only process strings!  
-  return !isNaN(str) && // use type coercion to parse the _entirety_ of the string (`parseFloat` alone does not do this)...
-         !isNaN(parseFloat(str)) // ...and ensure strings of whitespace fail
+	if (typeof(str) != "string") 
+		return false; // we only process strings!
+	return !isNaN(str) && !isNaN(parseFloat(str));
 }
 
 String.prototype.toHHMMSS = function () {
@@ -494,11 +493,11 @@ function RunOverlay() {
 	hasStarted = true;
 	
 	if (usingTwitch) {
-	  console.log("Using Twitch PubSub");
-	  RunTwitchPubSub();
+		console.log("Using Twitch PubSub");
+		RunTwitchPubSub();
 	} else {
-	  console.log("Using streamerbot");
-	  ConnectStreamerBotWS();
+		console.log("Using streamerbot");
+		ConnectStreamerBotWS();
 	}
 }
 
@@ -554,4 +553,4 @@ window.addEventListener('onEventReceived', function (obj) {
 });
 
 if (IsHostedLocally())
-	RunOverlay();
+	RunOverlay()
