@@ -1,7 +1,7 @@
 # TwitchAdOverlay
-Displays an overlay whenever a twitch ad is about to play. For use as an alternative to having to download and run Streamer.bot
+Displays an overlay whenever a twitch ad is about to play. For use as an alternative to having to download and run Streamer.bot.
 
-This code originally came from a widget made by [nutty](https://www.youtube.com/watch?v=e5B7ZNGtkac). While this code supports the old method of just using Streamer.bot via StreamElements, it can also be ran locally within OBS.
+This code originally came from a widget made by [nutty](https://www.youtube.com/watch?v=e5B7ZNGtkac). While this code supports the old method of just using Streamer.bot via StreamElements, it can also be ran locally within OBS, avoiding the necessity of external programs and services. If you use the PubSub twitch option, you cannot host the file as a StreamElements widget, as their CORS policy does not allow for connections to the Twitch backend.
 
 ## Setup
 
@@ -18,3 +18,11 @@ This will be going over how to run the system locally rather than via StreamElem
 9. Save the changes as `config.js`
 10. Create a new browser scene in OBS, paste the URL to your html file.
 11. You will now get ad overlays and a notification ding (remember to have your browser source also control audio through OBS and monitor that sound channel) whenever you get ads playing on your channel.
+
+
+## Credits
+
+* Ding sound from Free Sounds user LittleRainySeasons (public domain): https://freesound.org/people/LittleRainySeasons/sounds/335908/
+* Original Streamer.Bot/StreamElements overlay code by: [nutty](https://www.youtube.com/@nuttylmao)
+* PubSub event snooping by [TwitchLib](https://github.com/TwitchLib/TwitchLib.PubSub/blob/master/TwitchLib.PubSub/Models/Responses/Messages/VideoPlayback.cs#L12) and [twitch_api2](https://docs.rs/twitch_api2/0.6.1/src/twitch_api2/pubsub/video_playback.rs.html#14-17)
+* IsNumeric from [this stackoverflow answer](https://stackoverflow.com/a/175787)
