@@ -2,7 +2,7 @@
 var configData = {
 	"usingTwitch": true,
 	"playAudioOnAd": true,
-	"twitchUserID": "",
+	"twitchUserName": "",
 	// Needs scopes: channel:edit:commercial channel_commercial channel_read
 	"twitchOAuthToken": "",
 	"noticeText": "Twitch Ad Break",
