@@ -6,6 +6,7 @@ let sbAdRun;
 let sbAdMidRoll;
 let hasStarted = false;
 const twitchPubSubServer = "wss://pubsub-edge.twitch.tv";
+const twitchHelixUsersEndpoint = "https://api.twitch.tv/helix/users?login=";
 
 ///////////////////
 // CONFIG FIELDS //
@@ -21,6 +22,8 @@ let singleAdLength = 30;
 let usingTwitch = true;
 let playAudioOnAd = true;
 let twitchUserID = "";
+let twitchUserName = "";
+let twitchClientId = "";
 // Needs scopes: channel:edit:commercial channel_commercial channel_read
 let twitchOAuthToken = "";
 
@@ -57,7 +60,8 @@ function SetConfigFromBlob(fieldData) {
 
 	usingTwitch = GetBooleanValueFromSettings(fieldData.usingTwitch);
 	playAudioOnAd = GetBooleanValueFromSettings(fieldData.playAudioOnAd);
-	twitchUserID = fieldData.twitchUserID.trim();
+	twitchUserName = fieldData.twitchUserName.trim();
+	twitchClientId = fieldData.twitchClientId.trim();
 	if (isNumeric(fieldData.singleAdLength))
 		singleAdLength = Number(fieldData.singleAdLength);
 	twitchOAuthToken = fieldData.twitchOAuthToken.trim();
@@ -66,8 +70,8 @@ function SetConfigFromBlob(fieldData) {
 
 function TwitchSettingsValid() {
 	if (usingTwitch) {
-		if (twitchUserID.length == 0 || !isNumeric(twitchUserID)) {
-			console.warn("Twitch UserID string is not a number!");
+		if (twitchClientId.length == 0) {
+			console.warn("Twitch client id is missing!");
 			return false;
 		} else if (twitchOAuthToken.length == 0) {
 			console.warn("Twitch OAuth Token is missing!!");
@@ -83,7 +87,7 @@ function TwitchSettingsValid() {
 try {
 	console.log("Attempting to read local data config");
 	SetConfigFromBlob(configData);
-
+	
 	if (!TwitchSettingsValid())
 		throw "Bad Twitch Settings";
 	
@@ -94,6 +98,30 @@ try {
 	} else {
 		console.log("A config file does not exist. Might be running from StreamElements?");
 	}
+}
+
+// Get the user's channel id if we're using twitch!
+if (usingTwitch) {
+	const helixLookup = twitchHelixUsersEndpoint + twitchUserName;
+	let xhr = new XMLHttpRequest();
+	xhr.open("GET", helixLookup, false);
+	xhr.setRequestHeader("Authorization", "Bearer "+twitchOAuthToken);
+	xhr.setRequestHeader("Client-Id", twitchClientId);
+	
+	xhr.onload = (e) => {
+	  if (xhr.readyState === 4) {
+		if (xhr.status === 200) {
+		  const responseJson = JSON.parse(xhr.responseText);
+		  twitchUserID = responseJson.data[0].id;
+		} else {
+		  console.error(xhr.statusText);
+		}
+	  }
+	};
+	xhr.onerror = (e) => {
+	  console.error(xhr.statusText);
+	};
+	xhr.send();
 }
 
 ///////////////////////////////////

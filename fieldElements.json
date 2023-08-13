@@ -9,10 +9,15 @@
 			"No": "No"
 		}
 	},
-  	"twitchUserID": {
+  	"twitchUserName": {
 		"group": "Twitch",
 		"type": "text",
-		"label": "Twitch Channel ID"
+		"label": "Twitch User Name"
+	},
+	"twitchClientId": {
+		"group": "Twitch",
+		"type": "text",
+		"label": "Twitch Client ID"
 	},
     "twitchOAuthToken": {
       "group": "Twitch",
