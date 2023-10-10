@@ -56,7 +56,7 @@ function SetConfigFromBlob(fieldData) {
 		lineThickness = Number(fieldData.lineThickness);
 	
 	barPosition = fieldData.barPosition.toLowerCase();
-	timerPosition = fieldData.timerPosition;
+	timerPosition = fieldData.timerPosition.toLowerCase();
 
 	usingTwitch = GetBooleanValueFromSettings(fieldData.usingTwitch);
 	playAudioOnAd = GetBooleanValueFromSettings(fieldData.playAudioOnAd);
@@ -307,8 +307,8 @@ function TimerBarAnimation(adLength) {
 	// Set style
 	timerBar.style.background = barColor;
 	timerBar.style.position = "absolute";
-
-	switch (barPosition) {
+	
+	switch (barPosition.toLowerCase()) {
 	case "none":
 		timerBar.style.display = "none";
 		break;
@@ -361,24 +361,25 @@ function TimerBarAnimation(adLength) {
 
 function HugeTittiesAnimation(adLength) {
 	let hugeTittiesContainer = document.getElementById("hugeTittiesContainer");
-
-	switch (timerPosition) {
-	case "None":
+        let timerPosLower = timerPosition.toLowerCase();
+	switch (timerPosLower) {
+	case "none":
 		hugeTittiesContainer.style.display = "none";
 		break;
-	case "Top Left":
+	default:
+	case "top left":
 		hugeTittiesContainer.style.top = "0px";
 		hugeTittiesContainer.style.left = "0px";
 		break;
-	case "Top Right":
+	case "top right":
 		hugeTittiesContainer.style.top = "0px";
 		hugeTittiesContainer.style.right = "0px";
 		break;
-	case "Bottom Left":
+	case "bottom left":
 		hugeTittiesContainer.style.bottom = "0px";
 		hugeTittiesContainer.style.left = "0px";
 		break;
-	case "Bottom Right":
+	case "bottom right":
 		hugeTittiesContainer.style.bottom = "0px";
 		hugeTittiesContainer.style.right = "0px";
 		break;
