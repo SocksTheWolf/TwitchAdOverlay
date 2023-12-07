@@ -8,7 +8,7 @@ This code originally came from a widget made by [nutty](https://www.youtube.com/
 This will be going over how to run the system locally rather than via StreamElements and Streamer.bot. That setup is covered by the video nutty made.
 
 1. Create a new application via [Twitch developer console](https://dev.twitch.tv/console). This will give you a client id that you will use later.
-2. [Generate an OAuth token](https://twitchapps.com/tokengen/) for your new client id. You will need the following scopes: `channel:edit:commercial channel_commercial channel_read`
+2. [Generate an OAuth token](https://twitchapps.com/tokengen/) for your new client id. You will need the following scopes: `channel:read:ads channel:edit:commercial channel_commercial channel_read`
 
    **NOTE:** Make sure your redirect URL is properly set on the developer console.
 4. Grant your new application a sign-in to your account.

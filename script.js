@@ -24,7 +24,7 @@ let playAudioOnAd = true;
 let twitchUserID = "";
 let twitchUserName = "";
 let twitchClientId = "";
-// Needs scopes: channel:edit:commercial channel_commercial channel_read
+// Needs scopes: channel:edit:commercial channel:read:ads channel_commercial channel_read
 let twitchOAuthToken = "";
 
 /////////////////////
