@@ -4,7 +4,7 @@ var configData = {
 	"playAudioOnAd": true,
 	"twitchUserName": "",
 	"twitchClientId": "",
-	// Needs scopes: channel:edit:commercial channel_commercial channel_read
+	// Needs scopes: channel:edit:commercial channel:read:ads channel_commercial channel_read
 	"twitchOAuthToken": "",
 	"noticeText": "Twitch Ad Break",
 	"noticeColor": "#ffffff",
@@ -13,5 +13,8 @@ var configData = {
 	"barPosition": "bottom",
 	"barColor": "#a970ff",
 	"timerPosition": "Top Left",
+	"showMidRollCountdown": "yes",
+	"aheadOfTimeAlert": 5,
+	"pollForNextAdRate": 5,
 	"debugMode": false
 };

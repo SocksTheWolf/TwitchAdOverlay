@@ -4,9 +4,12 @@
 let ws;
 let sbAdRun;
 let sbAdMidRoll;
+let pollForNextAdBreakTimer = null;
+let adAlertForNextAdTimer = null;
 let hasStarted = false;
 const twitchPubSubServer = "wss://pubsub-edge.twitch.tv";
 const twitchHelixUsersEndpoint = "https://api.twitch.tv/helix/users?login=";
+const twitchHelixAdEndpoint = "https://api.twitch.tv/helix/channels/ads?broadcaster_id=";
 
 ///////////////////
 // CONFIG FIELDS //
@@ -26,13 +29,15 @@ let twitchUserName = "";
 let twitchClientId = "";
 // Needs scopes: channel:edit:commercial channel:read:ads channel_commercial channel_read
 let twitchOAuthToken = "";
+let showMidRollCountdown = "No";	// No, Yes
+let aheadOfTimeAlert = 3; // Ahead of time countdown (in minutes)
+let pollForNextAdRate = 5; // Polling for next ad rate (in minutes)
 
 /////////////////////
 // SB ONLY CONFIGS //
 /////////////////////
 let sbServerAddress = "127.0.0.1";
 let sbServerPort = "8080";
-let showMidRollCountdown = "No";	// No, Yes
 let testDuration = 5;
 
 /////////////////////
@@ -60,6 +65,9 @@ function SetConfigFromBlob(fieldData) {
 
 	usingTwitch = GetBooleanValueFromSettings(fieldData.usingTwitch);
 	playAudioOnAd = GetBooleanValueFromSettings(fieldData.playAudioOnAd);
+	showMidRollCountdown = GetBooleanValueFromSettings(fieldData.showMidRollCountdown);
+	aheadOfTimeAlert = fieldData.aheadOfTimeAlert;
+	pollForNextAdRate = fieldData.pollForNextAdRate;
 	twitchUserName = fieldData.twitchUserName.trim();
 	twitchClientId = fieldData.twitchClientId.trim();
 	if (isNumeric(fieldData.singleAdLength))
@@ -230,6 +238,7 @@ function RunTwitchPubSub() {
 			} else {
 				console.log("Connected!");
 				SetConnectionStatus(true);
+				EnqueueNextScheduleAdPoll(true);
 			}
 		} else if (message.data === "undefined") {
 			console.log("Message data was undefined: "+message);
@@ -292,13 +301,84 @@ function AdRun(data) {
 	console.log("Ads are to be running at length " + data.length);
 	TimerBarAnimation(data.length);
 	HugeTittiesAnimation(data.length);
+	EnqueueNextScheduleAdPoll();
+}
+
+function ClearTimerForObject(inTimerToClear) {
+	if (inTimerToClear != null) {
+		window.clearTimeout(inTimerToClear);
+		inTimerToClear = null;
+	}
+}
+
+function EnqueueNextScheduleAdPoll(ShouldGoNow=false) {
+	// If we're allowed to show the midroll countdown, start polling.
+	if (!showMidRollCountdown)
+		return;
+
+	// Clear Ad Poll Timer
+	ClearTimerForObject(pollForNextAdBreakTimer);
+	if (ShouldGoNow)
+		PollAdSchedule();
+	else
+		pollForNextAdBreakTimer = setTimeout(PollAdSchedule, 1000 * 60 * pollForNextAdRate);
+}
+
+function SetTimeoutForAdAlert(TimeInMs) {
+	ClearTimerForObject(adAlertForNextAdTimer);
+	adAlertForNextAdTimer = setTimeout(AdMidRoll, TimeInMs);
+}
+
+function PollAdSchedule() {	
+	const helixLookup = twitchHelixAdEndpoint + twitchUserID;
+	let xhr = new XMLHttpRequest();
+	xhr.open("GET", helixLookup, true);
+	xhr.setRequestHeader("Authorization", "Bearer "+twitchOAuthToken);
+	xhr.setRequestHeader("Client-Id", twitchClientId);
+	
+	xhr.onload = (e) => {
+	  if (xhr.readyState === 4) {
+		if (xhr.status === 200) {
+		  const responseJson = JSON.parse(xhr.responseText);
+		  // console log this for safety
+		  console.log(responseJson);
+		  // Cast timestamp into Date object
+		  const responseTimeStamp = responseJson.data[0].next_ad_at;
+		  var NextAdTime = 0;
+		  if (typeof(responseTimeStamp) === "string")
+		  	NextAdTime = Date.parse(responseTimeStamp);
+		  else
+			NextAdTime = responseTimeStamp * 1000; // Twitch may return as seconds
+		  // Subtract some offset so we can be alerted ahead of time
+		  // Create a new Date object
+		  NextAdTime = new Date(new Date(NextAdTime) - (aheadOfTimeAlert * 60 * 1000));
+		  const TimeUntilNextAlertInMs = NextAdTime - Date.now();
+		  // Set another poll event for the next time to poll
+		  EnqueueNextScheduleAdPoll();
+		  // Set timer for next ad via the nextadtime
+		  SetTimeoutForAdAlert(TimeUntilNextAlertInMs);
+		} else {
+		  console.error(xhr.statusText);
+		  EnqueueNextScheduleAdPoll();
+		}
+	  }
+	};
+	xhr.onerror = (e) => {
+	  console.error(xhr.statusText);
+	  EnqueueNextScheduleAdPoll();
+	};
+	xhr.send();
 }
 
 function AdMidRoll(data) {
 	if (!showMidRollCountdown)
 		return;
 
-	MidRollAnimation(5);
+	MidRollAnimation(aheadOfTimeAlert*60);
+	if (playAudioOnAd) {
+		let audioPing = document.getElementById("adMidrollStartingNoise");
+		audioPing.play();
+	}
 }
 
 function TimerBarAnimation(adLength) {
@@ -562,7 +642,9 @@ window.addEventListener('onWidgetLoad', function (obj) {
 	sbServerPort = fieldData.sbServerPort;
 	sbAdRun = fieldData.sbAdRun;
 	sbAdMidRoll = fieldData.sbAdMidRoll;
-	showMidRollCountdown = fieldData.showMidRollCountdown;
+	aheadOfTimeAlert = fieldData.aheadOfTimeAlert;
+	pollForNextAdRate = fieldData.pollForNextAdRate;
+	showMidRollCountdown = GetBooleanValueFromSettings(fieldData.showMidRollCountdown);
 	testDuration = fieldData.testDuration;
 	RunOverlay();
 });
