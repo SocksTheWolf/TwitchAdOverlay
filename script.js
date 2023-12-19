@@ -4,6 +4,7 @@
 let ws;
 let sbAdRun;
 let sbAdMidRoll;
+let midRollTimerObject = null;
 let pollForNextAdBreakTimer = null;
 let adAlertForNextAdTimer = null;
 let hasStarted = false;
@@ -522,11 +523,10 @@ function MidRollAnimation(countdownLength) {
 	// Start the countdown timer
 	let startingTime = countdownLength;
 
-	var timerThingy = setInterval(function () {
+	midRollTimerObject = setInterval(function () {
 		startingTime--;
 		midRollCountdownContainer.innerText = startingTime;
 		if (startingTime == 0) {
-			clearInterval(timerThingy);
 			ShowMidRollCountdown(false);
 			return;
 		}
@@ -534,12 +534,20 @@ function MidRollAnimation(countdownLength) {
 }
 
 function SetVisibility(isVisible) {
+	if (isVisible)
+		ShowMidRollCountdown(false);
+
 	let hugeTittiesContainer = document.getElementById("hugeTittiesContainer");
 	var tl = new TimelineMax();
 	tl.to(hugeTittiesContainer, 0.5, { opacity: isVisible, ease: Linear.easeNone });
 }
 
 function ShowMidRollCountdown(isVisible) {
+	if (midRollTimerObject != null) {
+		clearInterval(midRollTimerObject);
+		midRollTimerObject = null;
+	}
+	
 	let midRollContainer = document.getElementById("midRollContainer");
 	let width = midRollContainer.getBoundingClientRect().width;
 	var tl = new TimelineMax();
