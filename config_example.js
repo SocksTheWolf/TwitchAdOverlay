@@ -14,7 +14,9 @@ var configData = {
 	"barColor": "#a970ff",
 	"timerPosition": "Top Left",
 	"showMidRollCountdown": "yes",
-	"aheadOfTimeAlert": 5,
-	"pollForNextAdRate": 5,
+	// These are in minutes!
+	"aheadOfTimeAlert": 3,
+	// It's good to give yourself atleast a 2 minute difference from the value above
+	"pollForNextAdRate": 7,
 	"debugMode": false
 };
