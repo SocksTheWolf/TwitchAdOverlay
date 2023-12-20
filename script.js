@@ -357,7 +357,8 @@ function PollAdSchedule() {
 		  // Set another poll event for the next time to poll
 		  EnqueueNextScheduleAdPoll();
 		  // Set timer for next ad via the nextadtime
-		  SetTimeoutForAdAlert(TimeUntilNextAlertInMs);
+		  if (TimeUntilNextAlertInMs > 0)
+			  SetTimeoutForAdAlert(TimeUntilNextAlertInMs);
 		} else {
 		  console.error(xhr.statusText);
 		  EnqueueNextScheduleAdPoll();
