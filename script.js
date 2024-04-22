@@ -123,7 +123,7 @@ if (usingTwitch) {
 		  const responseJson = JSON.parse(xhr.responseText);
 		  twitchUserID = responseJson.data[0].id;
 		} else {
-		  console.error(xhr.statusText);
+		  console.error("OAuth token or channel name is no longer valid! "+xhr.statusText);
 		}
 	  }
 	};
@@ -211,6 +211,10 @@ function ConnectStreamerBotWS() {
 //////////////////////////
 
 function RunTwitchPubSub() {
+	// Prevent us running pubsub if the oauth token/channel id is not resolvable.
+	if (twitchUserID.length === 0)
+		return;
+	
 	var awaiting_pong = false;
 	let PingPong;
 	let PubSub = new WebSocket(twitchPubSubServer);
@@ -229,6 +233,7 @@ function RunTwitchPubSub() {
 		var message = JSON.parse(event.data);
 		if (message.type == "RECONNECT") {
 			console.log("force reconnection!");
+			SetConnectionStatus(false);
 			ForcePubSubReconnect();
 		} else if (message.type == "PONG") {
 			awaiting_pong = false;
@@ -360,13 +365,13 @@ function PollAdSchedule() {
 		  if (TimeUntilNextAlertInMs > 0)
 			  SetTimeoutForAdAlert(TimeUntilNextAlertInMs);
 		} else {
-		  console.error(xhr.statusText);
+		  console.error("Failed to get next ad schedule, this may be because of invalid token or a twitch error! "+xhr.statusText);
 		  EnqueueNextScheduleAdPoll();
 		}
 	  }
 	};
 	xhr.onerror = (e) => {
-	  console.error(xhr.statusText);
+	  console.error("Could not get the next ad schedule! " + xhr.statusText);
 	  EnqueueNextScheduleAdPoll();
 	};
 	xhr.send();
