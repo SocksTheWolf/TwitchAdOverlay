@@ -87,12 +87,28 @@
 		font-weight: bold;
 		margin: 10px 0px 0px 0px;
 	}
+	
+	.hidden {
+		display: none;
+	}
+	#setupContainer {
+		text-align: center;
+	}
+	#setupContainer a {
+		padding: 0px 50px;
+		margin: 3px;
+		border: 2px solid DimGrey;
+		color: white;
+		background-color: DarkSlateGrey;
+		box-shadow: 0 5px 15px rgba(0,0,0,0.20);
+	}
 	</style>
 	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xz/fonts@1/serve/metropolis.min.css" />
 	<meta http-equiv="Content-Security-Policy" content="connect-src *" />
 </head>
 
 <body>
+	<div id="setupContainer"></div>
 	<div id="statusContainer">Connecting...</div>
 	<div id="mainContainer">
 		<div id="timerBar"></div>
@@ -114,5 +130,6 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/1.18.0/TweenMax.min.js"></script>
 <script src="./config.js"></script>
-<script src="./script.js"></script>
+<script src="./utils.js"></script>
+<script src="./main.js"></script>
 </html>
