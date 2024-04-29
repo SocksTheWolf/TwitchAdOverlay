@@ -19,7 +19,7 @@ This will be going over how to run the system locally rather than via StreamElem
 8. Input the channel name of your Twitch account.
 9. A file named `config.js` will be generated and you'll be prompted to save it. Make sure to place it in the folder with your index.html!
 10. You can make any other changes you wish to modify the general look and feel of things via `config.js`, but generally you don't have to do anything further with it.
-11. Copy the URL of the html file from your browser.
+11. Refresh the html file. If it shows the green "Connected!", then you have followed the steps properly! You can copy the URL of the html file from your browser navigation bar.
 12. Create a new browser scene in OBS, paste the URL to your html file from step 11.
 13. You will now get ad overlays and a notification ding (remember to have your browser source also control audio through OBS and monitor that sound channel) whenever you get ads playing on your channel.
 
@@ -28,9 +28,11 @@ This will be going over how to run the system locally rather than via StreamElem
 
 ### The Ad Overlay never connects or isn't alerting
 
+If you've already saved a `config.js` and placed it in the right place.
+
 You just need to generate a new OAuth Token. This is required by Twitch from time to time. You can just simply open the html file in your browser and Generate New OAuth Token. Then just Save Data.
 
-Because you've entered your `client id` and Twitch channel name, you shouldn't be prompted for it again.
+Because you've entered your `client id` and Twitch channel name previously, you shouldn't be prompted for it again.
 
 ---
 
