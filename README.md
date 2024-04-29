@@ -28,9 +28,9 @@ This will be going over how to run the system locally rather than via StreamElem
 
 ### The Ad Overlay never connects or isn't alerting
 
-If you've already saved a `config.js` and placed it in the right place.
+Check if you've already saved a `config.js` and placed it in the right place. You'll know you did it right if you ever saw a green "Connected" message.
 
-You just need to generate a new OAuth Token. This is required by Twitch from time to time. You can just simply open the html file in your browser and Generate New OAuth Token. Then just Save Data.
+If you have seen the green message before, then you likely just need to generate a new OAuth Token. This is required by Twitch from time to time. You can just simply open the html file in your browser and Generate New OAuth Token. Then just Save Data.
 
 Because you've entered your `client id` and Twitch channel name previously, you shouldn't be prompted for it again.
 
