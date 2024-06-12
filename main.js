@@ -1,21 +1,17 @@
 /////////////////
 // GLOBAL VARS //
 /////////////////
-let ws;
-let sbAdRun;
-let sbAdMidRoll;
 let midRollTimerObject = null;
 let pollForNextAdBreakTimer = null;
 let adAlertForNextAdTimer = null;
 let hasStarted = false;
-const twitchPubSubServer = "wss://pubsub-edge.twitch.tv";
+let usingEventSub = false;
 const twitchHelixUsersEndpoint = "https://api.twitch.tv/helix/users?login=";
 const twitchHelixAdEndpoint = "https://api.twitch.tv/helix/channels/ads?broadcaster_id=";
 
 ///////////////////
 // CONFIG FIELDS //
 ///////////////////
-let debugMode = false;
 let barColor = "#a970ff";
 let noticeText = "Twitch Ad Break";
 let noticeColor = "#ffffff";
@@ -23,7 +19,6 @@ let lineThickness = 10;
 let barPosition = "bottom";			// None, Bottom, Top, Left, Right
 let timerPosition = "Top Left";		// None, Top Left, Top Right, Bottom Left, Bottom Right
 let singleAdLength = 30;
-let usingTwitch = true;
 let playAudioOnAd = true;
 let twitchUserID = "";
 let twitchUserName = "";
@@ -35,18 +30,9 @@ let aheadOfTimeAlert = 3; // Ahead of time countdown (in minutes)
 let pollForNextAdRate = 5; // Polling for next ad rate (in minutes)
 
 /////////////////////
-// SB ONLY CONFIGS //
-/////////////////////
-let sbServerAddress = "127.0.0.1";
-let sbServerPort = "8080";
-let testDuration = 5;
-
-/////////////////////
 // CONFIG PARSING //
 ////////////////////
-function SetConfigFromBlob(fieldData) {	
-	debugMode = GetBooleanValueFromSettings(fieldData.debugMode);
-	usingTwitch = GetBooleanValueFromSettings(fieldData.usingTwitch);
+function SetConfigFromBlob(fieldData) {
 	barColor = fieldData.barColor;
 	noticeColor = fieldData.noticeColor;
 	if (isNumeric(fieldData.lineThickness))
@@ -55,7 +41,6 @@ function SetConfigFromBlob(fieldData) {
 	barPosition = fieldData.barPosition.toLowerCase();
 	timerPosition = fieldData.timerPosition.toLowerCase();
 
-	usingTwitch = GetBooleanValueFromSettings(fieldData.usingTwitch);
 	playAudioOnAd = GetBooleanValueFromSettings(fieldData.playAudioOnAd);
 	showMidRollCountdown = GetBooleanValueFromSettings(fieldData.showMidRollCountdown);
 	aheadOfTimeAlert = fieldData.aheadOfTimeAlert;
@@ -69,16 +54,14 @@ function SetConfigFromBlob(fieldData) {
 }
 
 function TwitchSettingsValid() {
-	if (usingTwitch) {
-		if (twitchClientId.length == 0) {
-			console.warn("Twitch client id is missing!");
-			return false;
-		} else if (twitchOAuthToken.length == 0) {
-			console.warn("Twitch OAuth Token is missing!!");
-			return false;
-		} else {
-			console.log("Twitch config checks out");
-		}
+	if (twitchClientId.length == 0) {
+		console.warn("Twitch client id is missing!");
+		return false;
+	} else if (twitchOAuthToken.length == 0) {
+		console.warn("Twitch OAuth Token is missing!!");
+		return false;
+	} else {
+		console.log("Twitch config checks out");
 	}
 	return true;
 }
@@ -101,7 +84,7 @@ try {
 }
 
 // Get the user's channel id if we're using twitch!
-if (usingTwitch) {
+function PullTwitchChannelID() {
 	const helixLookup = twitchHelixUsersEndpoint + twitchUserName;
 	let xhr = new XMLHttpRequest();
 	xhr.open("GET", helixLookup, false);
@@ -123,172 +106,7 @@ if (usingTwitch) {
 	};
 	xhr.send();
 }
-
-///////////////////////////////////
-// SRTEAMER.BOT WEBSOCKET SERVER //
-///////////////////////////////////
-
-// This is the main function that connects to the Streamer.bot websocket server
-function ConnectStreamerBotWS() {
-	if ("WebSocket" in window) {
-		ws = new WebSocket("ws://" + sbServerAddress + ":" + sbServerPort + "/");
-
-		// Reconnect
-		ws.onclose = function () {
-			SetConnectionStatus(false);
-			setTimeout(ConnectStreamerBotWS, 5000);
-		};
-
-		// Connect
-		ws.onopen = async function () {
-			SetConnectionStatus(true);
-
-			console.log("Subscribe to events");
-			ws.send(
-			JSON.stringify({
-				request: "Subscribe",
-				id: "subscribe-events-id",
-				events: {
-					// This is the list of Streamer.bot websocket events to subscribe to
-					// See full list of events here:
-					// https://wiki.streamer.bot/en/Servers-Clients/WebSocket-Server/Requests
-					twitch: [
-						"AdRun",
-						"AdMidRoll"
-					]}
-				})
-			);
-
-			ws.onmessage = function (event) {
-				// Grab message and parse JSON
-				const msg = event.data;
-				const wsdata = JSON.parse(msg);
-
-				if (typeof(wsdata.event) == "undefined")
-					return;
-
-				// Print data to log for debugging purposes
-				if (debugMode) {
-					console.log(wsdata.data);
-					console.log(wsdata.event.type);
-				}
-
-				// Check for events to trigger
-				// See documentation for all events here:
-				// https://wiki.streamer.bot/en/Servers-Clients/WebSocket-Server/Events
-				switch (wsdata.event.source) {
-					// Twitch Events
-				case 'Twitch':
-					switch (wsdata.event.type) {
-					case ('AdRun'):
-						sbDoAction(ws, sbAdRun, wsdata.data);
-						AdRun(wsdata.data);
-						break;
-					case ('AdMidRoll'):
-						sbDoAction(ws, sbAdMidRoll, wsdata.data);
-						AdMidRoll(wsdata.data);
-						break;
-					}
-					break;
-
-				}
-			};
-		}
-	}
-}
-
-//////////////////////////
-// TWITCH PUBSUB SYSTEM //
-//////////////////////////
-
-function RunTwitchPubSub() {
-	// Prevent us running pubsub if the oauth token/channel id is not resolvable.
-	if (twitchUserID.length === 0)
-		return;
-	
-	var awaiting_pong = false;
-	let PingPong;
-	let PubSub = new WebSocket(twitchPubSubServer);
-
-	function ForcePubSubReconnect() {
-		awaiting_pong = false;
-		SetConnectionStatus(false);
-		PubSub.close();
-		PubSub = new WebSocket(twitchPubSubServer);
-	}
-
-	PubSub.onmessage = function(event) {
-		if (debugMode)
-			console.log(event);
-
-		var message = JSON.parse(event.data);
-		if (message.type == "RECONNECT") {
-			console.log("force reconnection!");
-			SetConnectionStatus(false);
-			ForcePubSubReconnect();
-		} else if (message.type == "PONG") {
-			awaiting_pong = false;
-			console.log("Got PONG");
-		} else if (message.type == "RESPONSE") {
-			if (message.error) {
-				console.error("Encountered a twitch error: "+message.error);
-			} else {
-				console.log("Connected!");
-				SetConnectionStatus(true);
-				EnqueueNextScheduleAdPoll(true);
-			}
-		} else if (message.data === "undefined") {
-			console.log("Message data was undefined: "+message);
-		} else if (message.type == "MESSAGE") {
-			var internalMessage = JSON.parse(message.data.message);
-			switch (message.data.topic.slice(0, -1 * (twitchUserID.length+1))){
-			case 'video-playback-by-id':
-				if (internalMessage.type == "commercial") {
-					AdRun(internalMessage);
-				} else if (debugMode) {
-					console.log(internalMessage.type);
-				}
-				break;
-			default:
-				console.log("Unhandled Function")
-			}
-		}	
-	}
-
-	PubSub.onopen = function(event) {
-		PubSub.send(JSON.stringify({
-			type: "LISTEN",
-			data: {
-				topics: ["video-playback-by-id." + twitchUserID/*, "ads-manager."+twitchUserID+"."+twitchUserID*/],
-				auth_token: twitchOAuthToken
-			}
-		}))
-		PingPong = setInterval(() => {
-			if (PubSub.readyState == 2 || PubSub.readyState == 3) {
-				// Websocket is closing, let's reconnect instead
-				ForcePubSubReconnect();
-			} else {
-				PubSub.send(JSON.stringify({type:"PING"}));
-				awaiting_pong = true;
-
-				// Response not received within 15s time
-				setTimeout(() => {
-					if (awaiting_pong) {
-						awaiting_pong = false;
-						ForcePubSubReconnect();
-					}
-				}, 1000 * 15);
-			}
-		}, 1000 * 60 * 3);
-	}
-
-	PubSub.onclose = function(event) {
-		if (PingPong !== "undefined") {
-			clearInterval(PingPong);
-		}
-		ForcePubSubReconnect();
-	}
-}
+PullTwitchChannelID();
 
 ///////////////////////
 // TWITCH AD OVERLAY //
@@ -356,7 +174,7 @@ function PollAdSchedule() {
 		  if (TimeUntilNextAlertInMs > 0)
 			  SetTimeoutForAdAlert(TimeUntilNextAlertInMs);
 		} else {
-		  console.error("Failed to get next ad schedule, this may be because of invalid token or a twitch error! "+xhr.statusText);
+		  console.error("Failed to get next ad schedule, this may be because of invalid token or twitch error! "+xhr.statusText);
 		  EnqueueNextScheduleAdPoll();
 		}
 	  }
@@ -560,23 +378,6 @@ function ShowMidRollCountdown(isVisible) {
 // HELPER FUNCTIONS //
 //////////////////////
 
-function sbDoAction(ws, actionName, data) {
-	if (usingTwitch)
-		return;
-
-	let request = JSON.stringify({
-		request: "DoAction",
-		id: "subscribe-do-action-id",
-		action: {
-			name: actionName
-		},
-		args: {
-			data
-		}
-	});
-	ws.send(request);
-}
-
 String.prototype.toHHMMSS = function () {
 	var sec_num = parseInt(this, 10); // don't forget the second param
 	var hours = Math.floor(sec_num / 3600);
@@ -597,14 +398,10 @@ function RunOverlay() {
 	let noticeTextFix = document.getElementById("label");
 	noticeTextFix.innerHTML = noticeText;
 	hasStarted = true;
-	
-	if (usingTwitch) {
-		console.log("Using Twitch PubSub");
+	if (usingEventSub)
+		RunTwitchEventSub();
+	else
 		RunTwitchPubSub();
-	} else {
-		console.log("Using streamerbot");
-		ConnectStreamerBotWS();
-	}
 }
 
 function SetConnectionStatus(connected) {
@@ -622,43 +419,7 @@ function SetConnectionStatus(connected) {
 	}
 }
 
-///////////////////////////
-// STREAMELEMENTS EVENTS //
-///////////////////////////
-
-window.addEventListener('onWidgetLoad', function (obj) {
-	const fieldData = obj.detail.fieldData;
-	SetConfigFromBlob(fieldData);
-	sbServerAddress = fieldData.sbServerAddress;
-	sbServerPort = fieldData.sbServerPort;
-	sbAdRun = fieldData.sbAdRun;
-	sbAdMidRoll = fieldData.sbAdMidRoll;
-	aheadOfTimeAlert = fieldData.aheadOfTimeAlert;
-	pollForNextAdRate = fieldData.pollForNextAdRate;
-	showMidRollCountdown = GetBooleanValueFromSettings(fieldData.showMidRollCountdown);
-	testDuration = fieldData.testDuration;
-	RunOverlay();
-});
-
-window.addEventListener('onEventReceived', function (obj) {
-	const listener = obj.detail.listener;
-	// Handling widget buttons
-	if (obj.detail.event) {
-		if (obj.detail.event.listener === 'widget-button') {
-			if (obj.detail.event.field === 'testButtonAdWidget') {
-				const data = { length: testDuration };
-				sbDoAction(ws, sbAdRun, data);
-				AdRun(data);
-			}
-			if (obj.detail.event.field === 'testButtonAdMidRoll') {
-				const data = { length: 5 };
-				sbDoAction(ws, sbAdMidRoll, data);
-				AdMidRoll(data);
-			}
-			return;
-		}
-	}
-});
-
 if (IsHostedLocally())
 	RunOverlay()
+else
+	console.warn("This overlay widget needs to be hosted locally to work");
