@@ -36,9 +36,9 @@ Because you've entered your `client id` and Twitch channel name previously, you 
 
 ## Credits
 
-* Ding sound from Free Sounds user LittleRainySeasons (public domain): https://freesound.org/people/LittleRainySeasons/sounds/335908/
-* Ads playing soon sound from Free Sounds user (Joao_Janz) under CreativeCommons: https://freesound.org/people/Joao_Janz/sounds/478513/
-* Original Streamer.Bot/StreamElements overlay code by: [nutty](https://www.youtube.com/@nuttylmao)
+* [Ding sound](https://freesound.org/people/LittleRainySeasons/sounds/335908/) from FreeSound user LittleRainySeasons under CC0
+* [Ads playing soon sound](https://freesound.org/people/Joao_Janz/sounds/478513/) from FreeSound user (Joao_Janz) under CC0
+* Original Streamer.Bot/StreamElements overlay code by [nutty](https://www.youtube.com/@nuttylmao)
 * PubSub event snooping by [TwitchLib](https://github.com/TwitchLib/TwitchLib.PubSub/blob/master/TwitchLib.PubSub/Models/Responses/Messages/VideoPlayback.cs#L12) and [twitch_api2](https://docs.rs/twitch_api2/0.6.1/src/twitch_api2/pubsub/video_playback.rs.html#14-17)
 * IsNumeric from [this stackoverflow answer](https://stackoverflow.com/a/175787)
 * [TES library](https://github.com/mitchwadair/tesjs) for EventSub by mitchwadair
