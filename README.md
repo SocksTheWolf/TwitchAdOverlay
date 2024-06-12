@@ -32,6 +32,17 @@ If you have seen the green message before, then you likely just need to generate
 
 Because you've entered your `client id` and Twitch channel name previously, you shouldn't be prompted for it again.
 
+### How to change the audio alerts that play?
+
+The audio files are located in the `sounds` folder, and can be swapped with any sound so long as it is an MP3 file named like the below list. It is recommended to use files that are small in size.
+
+- `adsIncoming` = Plays whenever automated ads are about to begin, based off the value set for `aheadOfTimeAlert` minutes.
+- `adsPlaying` = Plays when the ads actually start appearing on your channel.
+
+### I snoozed an ad play, why does the widget still show Ads Starting Soon?
+
+There's no setting in the Twitch API that allows for querying that an ad is snoozed, so this is a limitation of the Twitch backend.
+
 ---
 
 ## Credits
