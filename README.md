@@ -1,11 +1,9 @@
 # TwitchAdOverlay
-Displays an overlay whenever a twitch ad is about to play. For use as an alternative to having to download and run Streamer.bot.
+Displays an overlay whenever a Twitch ad is about to play.
 
-This code originally came from a widget made by [nutty](https://www.youtube.com/watch?v=e5B7ZNGtkac). While this code supports the old method of just using Streamer.bot via StreamElements, it can also be ran locally within OBS, avoiding the necessity of external programs and services. If you use the PubSub Twitch option, you cannot host the file as a StreamElements widget, as their CORS policy does not allow for connections to the Twitch backend.
+This code originally came from a widget made by [nutty](https://www.youtube.com/watch?v=e5B7ZNGtkac) but has been modified to run locally instead.
 
 ## Setup
-
-This will be going over how to run the system locally rather than via StreamElements and Streamer.bot. That setup is covered by the video nutty made.
 
 1. Create a new application via [Twitch developer console](https://dev.twitch.tv/console). This will give you a `client id` that you will use later.
 
@@ -43,3 +41,4 @@ Because you've entered your `client id` and Twitch channel name previously, you 
 * Original Streamer.Bot/StreamElements overlay code by: [nutty](https://www.youtube.com/@nuttylmao)
 * PubSub event snooping by [TwitchLib](https://github.com/TwitchLib/TwitchLib.PubSub/blob/master/TwitchLib.PubSub/Models/Responses/Messages/VideoPlayback.cs#L12) and [twitch_api2](https://docs.rs/twitch_api2/0.6.1/src/twitch_api2/pubsub/video_playback.rs.html#14-17)
 * IsNumeric from [this stackoverflow answer](https://stackoverflow.com/a/175787)
+* [TES library](https://github.com/mitchwadair/tesjs) for EventSub by mitchwadair
