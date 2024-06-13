@@ -5,7 +5,7 @@ let midRollTimerObject = null;
 let pollForNextAdBreakTimer = null;
 let adAlertForNextAdTimer = null;
 let hasStarted = false;
-let usingEventSub = false;
+let usingEventSub = true;
 const twitchHelixUsersEndpoint = "https://api.twitch.tv/helix/users?login=";
 const twitchHelixAdEndpoint = "https://api.twitch.tv/helix/channels/ads?broadcaster_id=";
 
@@ -190,6 +190,7 @@ function AdMidRoll(data) {
 	if (!showMidRollCountdown)
 		return;
 
+	ClearMidrollTimerObj();
 	MidRollAnimation(aheadOfTimeAlert*60);
 	if (playAudioOnAd) {
 		let audioPing = document.getElementById("adMidrollStartingNoise");
@@ -312,15 +313,31 @@ function HugeTittiesAnimation(adLength) {
 		}
 		if (startingTime == 0 && adsRemaining == adsTotal) {
 			clearInterval(timerThingy);
-			SetVisibility(false);
+			ShowAdBoxData(false);
 			return;
 		}
 		adsRemainingContainer.innerText = adsRemaining + " of " + adsTotal;
 		timerContainer.innerText = startingTime.toString().toHHMMSS();
 
 		// Show the widget
-		SetVisibility(true);
+		ShowAdBoxData(true);
 	}, 1000)
+}
+
+function ShowAdBoxData(isVisible) {
+	if (isVisible)
+		ShowMidRollCountdown(false);
+
+	let hugeTittiesContainer = document.getElementById("hugeTittiesContainer");
+	var tl = new TimelineMax();
+	tl.to(hugeTittiesContainer, 0.5, { opacity: isVisible, ease: Linear.easeNone });
+}
+
+function ClearMidrollTimerObj() {
+	if (midRollTimerObject != null) {
+		clearInterval(midRollTimerObject);
+		midRollTimerObject = null;
+	}
 }
 
 function MidRollAnimation(countdownLength) {
@@ -348,20 +365,8 @@ function MidRollAnimation(countdownLength) {
 	}, 1000)
 }
 
-function SetVisibility(isVisible) {
-	if (isVisible)
-		ShowMidRollCountdown(false);
-
-	let hugeTittiesContainer = document.getElementById("hugeTittiesContainer");
-	var tl = new TimelineMax();
-	tl.to(hugeTittiesContainer, 0.5, { opacity: isVisible, ease: Linear.easeNone });
-}
-
 function ShowMidRollCountdown(isVisible) {
-	if (midRollTimerObject != null) {
-		clearInterval(midRollTimerObject);
-		midRollTimerObject = null;
-	}
+	ClearMidrollTimerObj();
 	
 	let midRollContainer = document.getElementById("midRollContainer");
 	let width = midRollContainer.getBoundingClientRect().width;
