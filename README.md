@@ -19,10 +19,6 @@ This code originally came from a widget made by [nutty](https://www.youtube.com/
 
 Check if you've already saved a `config.js` and placed it in the right place. You'll know you did it right if you ever saw a green "Connected" message.
 
-If you have seen the green message before, then you likely just need to generate a new OAuth Token. This is required by Twitch from time to time. You can just simply open the html file in your browser and Generate New OAuth Token. Then just Save Data.
-
-Because you've entered your `client id` and Twitch channel name previously, you shouldn't be prompted for it again.
-
 ### How to change the audio alerts that play?
 
 The audio files are located in the `sounds` folder, and can be swapped with any sound so long as it is an MP3 file named like the below list. It is recommended to use files that are small in size.
