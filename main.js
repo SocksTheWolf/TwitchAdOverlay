@@ -22,12 +22,13 @@ let singleAdLength = 30;
 let playAudioOnAd = true;
 let twitchUserID = "";
 let twitchUserName = "";
-let twitchClientId = "";
+let twitchClientId = "2d2v1hh7jpgum33n2z0qn9d2en4xkd";
 // Needs scopes: channel:edit:commercial channel:read:ads channel_commercial channel_read
 let twitchOAuthToken = "";
 let showMidRollCountdown = "No";	// No, Yes
 let aheadOfTimeAlert = 3; // Ahead of time countdown (in minutes)
 let pollForNextAdRate = 5; // Polling for next ad rate (in minutes)
+let makeTwitchAuthWorkToken = "";
 
 /////////////////////
 // CONFIG PARSING //
@@ -46,33 +47,39 @@ function SetConfigFromBlob(fieldData) {
 	aheadOfTimeAlert = fieldData.aheadOfTimeAlert;
 	pollForNextAdRate = fieldData.pollForNextAdRate;
 	twitchUserName = fieldData.twitchUserName.trim();
-	twitchClientId = fieldData.twitchClientId.trim();
 	if (isNumeric(fieldData.singleAdLength))
 		singleAdLength = Number(fieldData.singleAdLength);
-	twitchOAuthToken = fieldData.twitchOAuthToken.trim();
+	
+	makeTwitchAuthWorkToken = fieldData.makeTwitchAuthWorkToken.trim();
 	noticeText = fieldData.noticeText;
 }
 
-function TwitchSettingsValid() {
-	if (twitchClientId.length == 0) {
-		console.warn("Twitch client id is missing!");
-		return false;
-	} else if (twitchOAuthToken.length == 0) {
-		console.warn("Twitch OAuth Token is missing!!");
-		return false;
-	} else {
-		console.log("Twitch config checks out");
-	}
-	return true;
+function PullTwitchAuthToken() {
+	let xhr = new XMLHttpRequest();
+	xhr.open("POST", "https://make.twitchauth.work/get", false);
+	xhr.setRequestHeader("content-type", "text/plain");
+	xhr.onload = (e) => {
+		if (xhr.readyState === 4) {
+		  if (xhr.status === 200) {
+			const responseJson = JSON.parse(xhr.responseText);
+			if (responseJson.status == "success")
+				twitchOAuthToken = responseJson.access_token;
+		  } else {
+			console.error("OAuth token or channel name is no longer valid! "+xhr.statusText);
+		  }
+		}
+	};
+	xhr.onerror = (e) => {
+		console.error(xhr.statusText);
+		throw "Unable to fetch twitch auth token, you must sign up first";
+	};
+	xhr.send(makeTwitchAuthWorkToken);
 }
 
 // Load up settings from the config system
 try {
 	console.log("Attempting to read local data config");
 	SetConfigFromBlob(configData);
-	
-	if (!TwitchSettingsValid())
-		throw "Bad Twitch Settings";
 	
 } catch (error) {
 	if (IsHostedLocally()) {
@@ -82,6 +89,7 @@ try {
 		console.log("A config file does not exist. Might be running from StreamElements?");
 	}
 }
+PullTwitchAuthToken();
 
 // Get the user's channel id if we're using twitch!
 function PullTwitchChannelID() {

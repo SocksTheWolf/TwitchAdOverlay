@@ -46,16 +46,13 @@ function ConvertToDataURI(target_json) {
 	return "data:text/javascript;base64,"+btoa(OutputText);
 }
 
-function CreateConfigDownload(userName, clientID, twitchOAuth) {
+function CreateConfigDownload(userName, twitchOAuth) {
 	let newConfigData = configData;
 	if (userName != null)
 		newConfigData["twitchUserName"] = userName;
 	
-	if (clientID != null)
-		newConfigData["twitchClientId"] = clientID;
-	
 	if (twitchOAuth != null)
-		newConfigData["twitchOAuthToken"] = twitchOAuth;
+		newConfigData["makeTwitchAuthWorkToken"] = twitchOAuth;
 	
 	// Generate a new download with the new data
 	let a = document.createElement("a");
@@ -65,39 +62,17 @@ function CreateConfigDownload(userName, clientID, twitchOAuth) {
 }
 
 function QueryForTwitchOAuthTokens() {
-	const GenerateTwitchOAuth = (clientID) => {
-		const scopes = encodeURIComponent("channel:read:ads channel:edit:commercial channel_commercial channel_read");
-		const url = 'https://id.twitch.tv/oauth2/authorize?response_type=token&client_id='+ clientID +'&redirect_uri=https://twitchapps.com/tokengen/&scope=' + scopes;
-		window.open(url, '_blank').focus();	
-	};
-	
-	if (HasConfigDataKey("twitchClientId")) {
-		GenerateTwitchOAuth(configData["twitchClientId"]);
-	} else {
-		const getClientID = window.prompt("Please enter your twitch client id", "");
-		if (getClientID == null || getClientID.length <= 0) {
-			console.error("Invalid client id data provided");
-		} else {
-			GenerateTwitchOAuth(getClientID);
-		}
-	}
+	window.open("https://make.twitchauth.work/login?template=3c71c079-2a9d-41aa-b5a4-726670b59efa", '_blank').focus();	
 }
 
 function GetDataToSet() {
-	var clientID = "";
 	var twitchUserName = "";
 	var oauthToken = "";
 	
-	oauthToken = window.prompt("Enter the OAuth token you have generated", "");
+	oauthToken = window.prompt("Enter the User Auth Token", "");
 	if (oauthToken == null) {
-		alert("Provided OAuth Token is not valid, please generate a new one");
+		alert("Provided User Auth Token is not valid, please generate a new one");
 		return;
-	}
-	
-	if (!HasConfigDataKey("twitchClientId")) {
-		clientID = window.prompt("Enter your twitch client id", "");
-	} else {
-		clientID = configData["twitchClientId"];
 	}
 	
 	if (!HasConfigDataKey("twitchUserName")) {
@@ -106,7 +81,7 @@ function GetDataToSet() {
 		twitchUserName = configData["twitchUserName"];
 	}
 	
-	CreateConfigDownload(twitchUserName, clientID, oauthToken);
+	CreateConfigDownload(twitchUserName, oauthToken);
 }
 
 function CreateSetupButtons() {
@@ -114,7 +89,7 @@ function CreateSetupButtons() {
 	if (!IsInOBS()) {
 		// Generate New OAuth
 		let GenNewOAuth = document.createElement("a");
-		GenNewOAuth.innerText = "Generate new OAuth Token";
+		GenNewOAuth.innerText = "Get User Login Token";
 		GenNewOAuth.onclick = QueryForTwitchOAuthTokens;
 		linkContainer.appendChild(GenNewOAuth);
 		

@@ -2,9 +2,7 @@
 var configData = {
    "playAudioOnAd": true,
    "twitchUserName": "",
-   "twitchClientId": "",
-   // Needs scopes: channel:edit:commercial channel:read:ads channel_commercial channel_read
-   "twitchOAuthToken": "",
+   "makeTwitchAuthWorkToken": "",
    "noticeText": "Twitch Ad Break",
    "noticeColor": "#ffffff",
    "singleAdLength": 30,
