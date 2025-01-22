@@ -22,8 +22,7 @@ let singleAdLength = 30;
 let playAudioOnAd = true;
 let twitchUserID = "";
 let twitchUserName = "";
-let twitchClientId = "2d2v1hh7jpgum33n2z0qn9d2en4xkd";
-// Needs scopes: channel:edit:commercial channel:read:ads channel_commercial channel_read
+let twitchClientId = "";
 let twitchOAuthToken = "";
 let showMidRollCountdown = "No";	// No, Yes
 let aheadOfTimeAlert = 3; // Ahead of time countdown (in minutes)
@@ -64,6 +63,7 @@ function PullTwitchAuthToken() {
 			const responseJson = JSON.parse(xhr.responseText);
 			if (responseJson.status == "success")
 				twitchOAuthToken = responseJson.access_token;
+				twitchClientId = responseJson.client_id;
 		  } else {
 			console.error("OAuth token or channel name is no longer valid! "+xhr.statusText);
 		  }
