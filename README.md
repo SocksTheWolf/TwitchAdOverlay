@@ -6,7 +6,7 @@ This code originally came from a widget made by [nutty](https://www.youtube.com/
 
 ## Setup
 
-1. Download the [latest release](/releases/latest) (click the Source Code zip option), unzip that file somewhere easy to remember.
+1. Download the [latest release](https://github.com/SocksTheWolf/TwitchAdOverlay/releases/latest) (click the Source Code zip option), unzip that file somewhere easy to remember.
 1. Open the `index.html` file in your usual browser. You'll see two buttons at the top: "Get User Login Token" and "Save Data". Click "Get User Login Token".
 2. Click "Save Data" and paste the value that you got in step 1. A file named `config.js` will be generated and you'll be prompted to save it. Make sure to place it in the folder with your `index.html`!
 3. You can make any other changes you wish to modify the general look and feel of things via `config.js`, but generally you don't have to do anything further with it.
