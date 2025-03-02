@@ -7,13 +7,13 @@ This code originally came from a widget made by [nutty](https://www.youtube.com/
 ## Setup
 
 1. Download the [latest release](https://github.com/SocksTheWolf/TwitchAdOverlay/releases/latest) (click the Source Code zip option), unzip that file somewhere easy to remember.
-1. Open the `index.html` file in your usual browser. You'll see two buttons at the top: "Get User Login Token" and "Save Data".
-2. Click "Get User Login Token". Go through the website service and get your new token!
-3. Click "Save Data" and paste the value that you got in the last step. A file named `config.js` will be generated and you'll be prompted to save it. Make sure to place it in the folder with your `index.html`!
-4. [OPTIONAL] You can make any other changes you wish to modify the general look and feel of things via `config.js`, but generally you don't have to do anything further with it.
-5. Refresh the html file in your browser. If it shows the green "Connected!", then you have followed the steps properly! You can copy the URL of the html file from your browser navigation bar.
-6. Create a new browser scene in OBS, paste the URL to your html file from the last step.
-7. You will now get ad overlays and a notification ding (remember to have your browser source also control audio through OBS and monitor that sound channel) whenever you get ads playing on your channel.
+2. Open the `index.html` file in your usual browser. You'll see two buttons at the top: "Get User Login Token" and "Save Data".
+3. Click "Get User Login Token". Go through the website service and get your new token!
+4. Click "Save Data" and paste the value that you got in the last step. A file named `config.js` will be generated and you'll be prompted to save it. Make sure to place it in the folder with your `index.html`!
+5. [OPTIONAL] You can make any other changes you wish to modify the general look and feel of things via `config.js`, but generally you don't have to do anything further with it.
+6. Refresh the html file in your browser. If it shows the green "Connected!", then you have followed the steps properly! You can copy the URL of the html file from your browser navigation bar.
+7. Create a new browser scene in OBS, paste the URL to your html file from the last step.
+8. You will now get ad overlays and a notification ding (remember to have your browser source also control audio through OBS and monitor that sound channel) whenever you get ads playing on your channel.
 
 ## FAQ
 
@@ -36,9 +36,9 @@ There's no setting in the Twitch API that allows for querying that an ad is snoo
 
 ## Credits
 
-* [Ding sound](https://freesound.org/people/LittleRainySeasons/sounds/335908/) from FreeSound user LittleRainySeasons under CC0
-* [Ads playing soon sound](https://freesound.org/people/Joao_Janz/sounds/478513/) from FreeSound user (Joao_Janz) under CC0
-* Original Streamer.Bot/StreamElements overlay code by [nutty](https://www.youtube.com/@nuttylmao)
-* PubSub event snooping by [TwitchLib](https://github.com/TwitchLib/TwitchLib.PubSub/blob/master/TwitchLib.PubSub/Models/Responses/Messages/VideoPlayback.cs#L12) and [twitch_api2](https://docs.rs/twitch_api2/0.6.1/src/twitch_api2/pubsub/video_playback.rs.html#14-17)
-* IsNumeric from [this stackoverflow answer](https://stackoverflow.com/a/175787)
-* [TES library](https://github.com/mitchwadair/tesjs) for EventSub by mitchwadair
+- [Ding sound](https://freesound.org/people/LittleRainySeasons/sounds/335908/) from FreeSound user LittleRainySeasons under CC0
+- [Ads playing soon sound](https://freesound.org/people/Joao_Janz/sounds/478513/) from FreeSound user (Joao_Janz) under CC0
+- Original Streamer.Bot/StreamElements overlay code by [nutty](https://www.youtube.com/@nuttylmao)
+- PubSub event snooping by [TwitchLib](https://github.com/TwitchLib/TwitchLib.PubSub/blob/master/TwitchLib.PubSub/Models/Responses/Messages/VideoPlayback.cs#L12) and [twitch_api2](https://docs.rs/twitch_api2/0.6.1/src/twitch_api2/pubsub/video_playback.rs.html#14-17)
+- IsNumeric from [this stackoverflow answer](https://stackoverflow.com/a/175787)
+- [TES library](https://github.com/mitchwadair/tesjs) for EventSub by mitchwadair
