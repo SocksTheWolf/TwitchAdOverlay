@@ -62,7 +62,7 @@ function CreateConfigDownload(userName, twitchOAuth) {
 }
 
 function QueryForTwitchOAuthTokens() {
-	window.open("https://make.twitchauth.work/login?template=3c71c079-2a9d-41aa-b5a4-726670b59efa", '_blank').focus();	
+	window.open(twitchAuthLink, '_blank').focus();	
 }
 
 function GetDataToSet() {

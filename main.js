@@ -5,7 +5,8 @@ let midRollTimerObject = null;
 let pollForNextAdBreakTimer = null;
 let adAlertForNextAdTimer = null;
 let hasStarted = false;
-let usingEventSub = true;
+const usingEventSub = true;
+const twitchAuthLink = "https://make.twitchauth.work/login?template=07ef212b-ecd0-48a0-8392-bc28a2aa20a4";
 const twitchHelixUsersEndpoint = "https://api.twitch.tv/helix/users?login=";
 const twitchHelixAdEndpoint = "https://api.twitch.tv/helix/channels/ads?broadcaster_id=";
 
