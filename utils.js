@@ -1,7 +1,7 @@
 function GetBooleanValueFromSettings(setting) {
 	if (typeof(setting) === "string") {
 		var LowerString = setting.toLowerCase();
-		return LowerString === "yes" || LowerString == "on";
+		return LowerString === "yes" || LowerString == "on" || LowerString == "true";
 	}
 	else
 		return setting;

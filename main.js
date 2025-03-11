@@ -4,8 +4,6 @@
 let midRollTimerObject = null;
 let pollForNextAdBreakTimer = null;
 let adAlertForNextAdTimer = null;
-let hasStarted = false;
-const usingEventSub = true;
 const twitchAuthLink = "https://make.twitchauth.work/login?template=07ef212b-ecd0-48a0-8392-bc28a2aa20a4";
 const twitchHelixUsersEndpoint = "https://api.twitch.tv/helix/users?login=";
 const twitchHelixAdEndpoint = "https://api.twitch.tv/helix/channels/ads?broadcaster_id=";
@@ -31,98 +29,219 @@ let pollForNextAdRate = 5; // Polling for next ad rate (in minutes)
 let makeTwitchAuthWorkToken = "";
 
 /////////////////////
-// CONFIG PARSING //
+//  APP HANDLING  //
 ////////////////////
-function SetConfigFromBlob(fieldData) {
-	barColor = fieldData.barColor;
-	noticeColor = fieldData.noticeColor;
-	if (isNumeric(fieldData.lineThickness))
-		lineThickness = Number(fieldData.lineThickness);
-	
-	barPosition = fieldData.barPosition.toLowerCase();
-	timerPosition = fieldData.timerPosition.toLowerCase();
-
-	playAudioOnAd = GetBooleanValueFromSettings(fieldData.playAudioOnAd);
-	showMidRollCountdown = GetBooleanValueFromSettings(fieldData.showMidRollCountdown);
-	aheadOfTimeAlert = fieldData.aheadOfTimeAlert;
-	pollForNextAdRate = fieldData.pollForNextAdRate;
-	twitchUserName = fieldData.twitchUserName.trim();
-	if (isNumeric(fieldData.singleAdLength))
-		singleAdLength = Number(fieldData.singleAdLength);
-	
-	makeTwitchAuthWorkToken = fieldData.makeTwitchAuthWorkToken.trim();
-	noticeText = fieldData.noticeText;
-}
-
-function PullTwitchAuthToken() {
-	let xhr = new XMLHttpRequest();
-	xhr.open("POST", "https://make.twitchauth.work/get", false);
-	xhr.setRequestHeader("content-type", "text/plain");
-	xhr.onload = (e) => {
-		if (xhr.readyState === 4) {
-		  if (xhr.status === 200) {
-			const responseJson = JSON.parse(xhr.responseText);
-			if (responseJson.status == "success")
-				twitchOAuthToken = responseJson.access_token;
-				twitchClientId = responseJson.client_id;
-		  } else {
-			console.error("OAuth token or channel name is no longer valid! "+xhr.statusText);
+const AppRunner = {
+	es: null,
+	adStartSubId: "",
+	loadSettings: function() {
+		return new Promise((resolve, reject) => {
+			try {
+				console.log("Attempting to read local data config");
+				// Load up settings from the config system
+				{
+					barColor = configData.barColor;
+					noticeColor = configData.noticeColor;
+					if (isNumeric(configData.lineThickness))
+						lineThickness = Number(configData.lineThickness);
+					
+					barPosition = configData.barPosition.toLowerCase();
+					timerPosition = configData.timerPosition.toLowerCase();
+				
+					playAudioOnAd = GetBooleanValueFromSettings(configData.playAudioOnAd);
+					showMidRollCountdown = GetBooleanValueFromSettings(configData.showMidRollCountdown);
+					aheadOfTimeAlert = configData.aheadOfTimeAlert;
+					pollForNextAdRate = configData.pollForNextAdRate;
+					twitchUserName = configData.twitchUserName.trim();
+					if (isNumeric(configData.singleAdLength))
+						singleAdLength = Number(configData.singleAdLength);
+					
+					makeTwitchAuthWorkToken = configData.makeTwitchAuthWorkToken.trim();
+					noticeText = configData.noticeText;
+				}
+				resolve();
+			} catch (error) {
+				if (IsHostedLocally()) {
+					console.error("Attempted to run file locally but missing config!!");
+				} else {
+					console.error("A config file does not exist. Might be running from StreamElements?");
+				}
+				reject("Invalid config data, please check config file and settings!");
+			}
+		});
+	},
+	getAuthToken: function() {
+		console.log("Fetching new auth token...");
+		return new Promise((resolve, reject) => {
+			let xhr = new XMLHttpRequest();
+			xhr.open("POST", "https://make.twitchauth.work/get");
+			xhr.setRequestHeader("content-type", "text/plain");
+			xhr.onload = function () {
+				if (xhr.status >= 200 && xhr.status < 300) {
+					const data = JSON.parse(xhr.responseText);
+					twitchClientId = data.client_id;
+					if (data.status == "success") {
+						console.warn(`Setting the oauth token now! Is new: ${twitchOAuthToken != data.access_token}`);
+						twitchOAuthToken = data.access_token;
+					}
+					resolve();
+				}
+				else
+					reject("Failed to get the authentication token!");
+			};
+			xhr.onerror = () => {
+				reject(`Unable to fetch twitch auth token, you must sign up first ${xhr.statusText}`);
+			};
+			xhr.send(makeTwitchAuthWorkToken);
+		});
+	},
+	getChannelId: function() {
+		console.log("Fetching channel id for user");
+		return new Promise((resolve, reject) => {
+			const helixLookup = twitchHelixUsersEndpoint + twitchUserName;
+			let xhr = new XMLHttpRequest();
+			xhr.open("GET", helixLookup);
+			xhr.setRequestHeader("Authorization", `Bearer ${twitchOAuthToken}`);
+			xhr.setRequestHeader("Client-Id", twitchClientId);
+			xhr.onload = function () {
+				if (xhr.status >= 200 && xhr.status < 300) {
+					const responseJson = JSON.parse(xhr.responseText);
+					twitchUserID = responseJson.data[0].id;
+					resolve();
+				} 
+				else
+					reject("Failed to get channel id for username!");
+			};
+			xhr.onerror = () => {
+				reject(`Unable to get twitch channel id for username ${xhr.statusText}`);
+			};
+			xhr.send();
+		});
+	},
+	getAdSchedule: function() {
+		const helixLookup = twitchHelixAdEndpoint + twitchUserID;
+		let xhr = new XMLHttpRequest();
+		xhr.open("GET", helixLookup);
+		xhr.setRequestHeader("Authorization", `Bearer ${twitchOAuthToken}`);
+		xhr.setRequestHeader("Client-Id", twitchClientId);
+		
+		xhr.onload = () => {
+		  if (xhr.readyState === 4) {
+			if (xhr.status === 200) {
+			  const responseJson = JSON.parse(xhr.responseText);
+			  // Cast timestamp into Date object
+			  const responseTimeStamp = responseJson.data[0].next_ad_at;
+			  var NextAdTime = 0;
+			  if (typeof(responseTimeStamp) === "string")
+				  NextAdTime = Date.parse(responseTimeStamp);
+			  else
+				NextAdTime = responseTimeStamp * 1000; // Twitch may return as seconds
+			  // Subtract some offset so we can be alerted ahead of time
+			  // Create a new Date object
+			  NextAdTime = new Date(new Date(NextAdTime) - (aheadOfTimeAlert * 60 * 1000));
+			  const TimeUntilNextAlertInMs = NextAdTime - Date.now();
+			  // Set another poll event for the next time to poll
+			  EnqueueNextScheduleAdPoll();
+			  // Set timer for next ad via the nextadtime
+			  if (TimeUntilNextAlertInMs > 0)
+				  SetTimeoutForAdAlert(TimeUntilNextAlertInMs);
+			} else {
+			  console.warn(`Failed to get next ad schedule, this may be because of invalid token or twitch error! ${xhr.status}`);
+			  this.restart();
+			}
 		  }
+		};
+		xhr.onerror = () => {
+		  console.error(`Could not get the next ad schedule! ${xhr.statusText}`);
+		  EnqueueNextScheduleAdPoll();
+		};
+		xhr.send();
+	},
+	runApp: function() {
+		return new Promise((resolve, reject) => {
+			SetConnectionStatus(false);
+			if (IsHostedLocally()) {	
+				document.getElementById("label").innerHTML = noticeText;
+				AppRunner.runEventSub();
+				resolve();
+			} 
+			else
+				reject("This overlay widget needs to be hosted locally to work");
+		});
+	},
+	start: function() {
+		this.loadSettings().then(this.getAuthToken)
+			.then(this.getChannelId).then(this.runApp).catch(err => {
+				if (err !== undefined && err !== null) {
+					console.error(`Error data: ${err}`);
+				}
+			});
+	},
+	restart: function() {
+		console.warn("Reauthing and restarting...");
+		this.getAuthToken().then(this.runApp).catch(err => {
+			console.error("Failed to restart application!");
+			if (err !== undefined && err !== null) {
+				console.error(`Error data: ${err}`);
+			}
+		});
+	},
+	runEventSub: function() {
+		// Prevent us running eventsub if the oauth token/channel id is not resolvable.
+		if (twitchUserID.length === 0) {
+			console.error("The Twitch UserID is at a zero length!");
+			return;
 		}
-	};
-	xhr.onerror = (e) => {
-		console.error(xhr.statusText);
-		throw "Unable to fetch twitch auth token, you must sign up first";
-	};
-	xhr.send(makeTwitchAuthWorkToken);
-}
-
-// Load up settings from the config system
-try {
-	console.log("Attempting to read local data config");
-	SetConfigFromBlob(configData);
-	
-} catch (error) {
-	if (IsHostedLocally()) {
-		console.error("Attempted to run file locally but missing config!!");
-		throw "Check config file and settings!";
-	} else {
-		console.log("A config file does not exist. Might be running from StreamElements?");
-	}
-}
-PullTwitchAuthToken();
-
-// Get the user's channel id if we're using twitch!
-function PullTwitchChannelID() {
-	const helixLookup = twitchHelixUsersEndpoint + twitchUserName;
-	let xhr = new XMLHttpRequest();
-	xhr.open("GET", helixLookup, false);
-	xhr.setRequestHeader("Authorization", "Bearer "+twitchOAuthToken);
-	xhr.setRequestHeader("Client-Id", twitchClientId);
-	
-	xhr.onload = (e) => {
-	  if (xhr.readyState === 4) {
-		if (xhr.status === 200) {
-		  const responseJson = JSON.parse(xhr.responseText);
-		  twitchUserID = responseJson.data[0].id;
-		} else {
-		  console.error("OAuth token or channel name is no longer valid! "+xhr.statusText);
+		
+		// Clean up any old version of the eventSub listener
+		if (this.es !== null) {
+			console.log("Twitch EventSub is currently already created, recreating...");
+			this.es.unsubscribe(this.adStartSubId).then(() => {
+				delete this.es;
+				this.es = null;
+				this.adStartSubId = "";
+				AppRunner.runEventSub();
+			}).catch(err => {
+				console.error(`Encountered an error when trying to restart event sub ${err}`);
+			});
+			return;
 		}
-	  }
-	};
-	xhr.onerror = (e) => {
-	  console.error(xhr.statusText);
-	};
-	xhr.send();
-}
-PullTwitchChannelID();
+	
+		console.log("Creating Twitch EventSub system");
+		this.es = new TES({listener: { type: "websocket" }, identity: {
+			id: twitchClientId,
+			accessToken: twitchOAuthToken,
+		}});
+		
+		this.es.on("channel.ad_break.begin", event => {
+			AdRun({length: event.duration_seconds});
+		});
+		
+		this.es.subscribe("channel.ad_break.begin", {
+			broadcaster_user_id: twitchUserID,
+		}).then((data) => {
+			console.log("Adbreak Subscription Successful");
+			this.adStartSubId = data.id;
+			SetConnectionStatus(true);
+			EnqueueNextScheduleAdPoll(true);
+		}).catch(err => {
+			console.error(`Failed to subscribe to ad start event ${err}`);
+			SetConnectionStatus(false);
+		});
+		
+		this.es.on("revocation", subscription => {
+			console.error(`Subscription was revoked due to ${subscription.status}`);
+			SetConnectionStatus(false);
+		});
+	},
+};
 
 ///////////////////////
 // TWITCH AD OVERLAY //
 ///////////////////////
 
 function AdRun(data) {
-	console.log("Ads are to be running at length " + data.length);
+	console.log(`Ads are to be running at length ${data.length}`);
 	TimerBarAnimation(data.length);
 	HugeTittiesAnimation(data.length);
 	EnqueueNextScheduleAdPoll();
@@ -135,64 +254,22 @@ function ClearTimerForObject(inTimerToClear) {
 	}
 }
 
-function EnqueueNextScheduleAdPoll(ShouldGoNow=false) {
+function EnqueueNextScheduleAdPoll(shouldGoNow=false) {
 	// If we're allowed to show the midroll countdown, start polling.
 	if (!showMidRollCountdown)
 		return;
 
 	// Clear Ad Poll Timer
 	ClearTimerForObject(pollForNextAdBreakTimer);
-	if (ShouldGoNow)
-		PollAdSchedule();
+	if (shouldGoNow)
+		AppRunner.getAdSchedule();
 	else
-		pollForNextAdBreakTimer = setTimeout(PollAdSchedule, 1000 * 60 * pollForNextAdRate);
+		pollForNextAdBreakTimer = setTimeout(AppRunner.getAdSchedule, 1000 * 60 * pollForNextAdRate);
 }
 
-function SetTimeoutForAdAlert(TimeInMs) {
+function SetTimeoutForAdAlert(timeInMs) {
 	ClearTimerForObject(adAlertForNextAdTimer);
-	adAlertForNextAdTimer = setTimeout(AdMidRoll, TimeInMs);
-}
-
-function PollAdSchedule() {	
-	const helixLookup = twitchHelixAdEndpoint + twitchUserID;
-	let xhr = new XMLHttpRequest();
-	xhr.open("GET", helixLookup, true);
-	xhr.setRequestHeader("Authorization", "Bearer "+twitchOAuthToken);
-	xhr.setRequestHeader("Client-Id", twitchClientId);
-	
-	xhr.onload = (e) => {
-	  if (xhr.readyState === 4) {
-		if (xhr.status === 200) {
-		  const responseJson = JSON.parse(xhr.responseText);
-		  // console log this for safety
-		  console.log(responseJson);
-		  // Cast timestamp into Date object
-		  const responseTimeStamp = responseJson.data[0].next_ad_at;
-		  var NextAdTime = 0;
-		  if (typeof(responseTimeStamp) === "string")
-		  	NextAdTime = Date.parse(responseTimeStamp);
-		  else
-			NextAdTime = responseTimeStamp * 1000; // Twitch may return as seconds
-		  // Subtract some offset so we can be alerted ahead of time
-		  // Create a new Date object
-		  NextAdTime = new Date(new Date(NextAdTime) - (aheadOfTimeAlert * 60 * 1000));
-		  const TimeUntilNextAlertInMs = NextAdTime - Date.now();
-		  // Set another poll event for the next time to poll
-		  EnqueueNextScheduleAdPoll();
-		  // Set timer for next ad via the nextadtime
-		  if (TimeUntilNextAlertInMs > 0)
-			  SetTimeoutForAdAlert(TimeUntilNextAlertInMs);
-		} else {
-		  console.error("Failed to get next ad schedule, this may be because of invalid token or twitch error! "+xhr.statusText);
-		  EnqueueNextScheduleAdPoll();
-		}
-	  }
-	};
-	xhr.onerror = (e) => {
-	  console.error("Could not get the next ad schedule! " + xhr.statusText);
-	  EnqueueNextScheduleAdPoll();
-	};
-	xhr.send();
+	adAlertForNextAdTimer = setTimeout(AdMidRoll, timeInMs);
 }
 
 function AdMidRoll(data) {
@@ -202,13 +279,15 @@ function AdMidRoll(data) {
 	ClearMidrollTimerObj();
 	MidRollAnimation(aheadOfTimeAlert*60);
 	if (playAudioOnAd) {
-		let audioPing = document.getElementById("adMidrollStartingNoise");
+		const audioPing = document.getElementById("adMidrollStartingNoise");
 		audioPing.play();
 	}
 }
 
+// Ad Overlay progress bar
 function TimerBarAnimation(adLength) {
-	let timerBar = document.getElementById("timerBar");
+	const timerBar = document.getElementById("timerBar");
+	var tl;
 
 	// Set style
 	timerBar.style.background = barColor;
@@ -260,57 +339,58 @@ function TimerBarAnimation(adLength) {
 		// Start Animation
 		tl = new TimelineMax();
 		tl.to(timerBar, 0.5, { height: window.innerHeight + "px", ease: Cubic.ease })
-			.to(timerBar, adLength, { height: "0px", ease: Linear.easeNone })
+		  .to(timerBar, adLength, { height: "0px", ease: Linear.easeNone })
 		break;
 	}
 }
 
+// Ad In Progress Info + Animation
 function HugeTittiesAnimation(adLength) {
-	let hugeTittiesContainer = document.getElementById("hugeTittiesContainer");
-        let timerPosLower = timerPosition.toLowerCase();
+	const hugeTittiesContainer = document.getElementById("hugeTittiesContainer");
+    const timerPosLower = timerPosition.toLowerCase();
 	switch (timerPosLower) {
-	case "none":
-		hugeTittiesContainer.style.display = "none";
-		break;
-	default:
-	case "top left":
-		hugeTittiesContainer.style.top = "0px";
-		hugeTittiesContainer.style.left = "0px";
-		break;
-	case "top right":
-		hugeTittiesContainer.style.top = "0px";
-		hugeTittiesContainer.style.right = "0px";
-		break;
-	case "bottom left":
-		hugeTittiesContainer.style.bottom = "0px";
-		hugeTittiesContainer.style.left = "0px";
-		break;
-	case "bottom right":
-		hugeTittiesContainer.style.bottom = "0px";
-		hugeTittiesContainer.style.right = "0px";
-		break;
+		case "none":
+			hugeTittiesContainer.style.display = "none";
+			break;
+		default:
+		case "top left":
+			hugeTittiesContainer.style.top = "0px";
+			hugeTittiesContainer.style.left = "0px";
+			break;
+		case "top right":
+			hugeTittiesContainer.style.top = "0px";
+			hugeTittiesContainer.style.right = "0px";
+			break;
+		case "bottom left":
+			hugeTittiesContainer.style.bottom = "0px";
+			hugeTittiesContainer.style.left = "0px";
+			break;
+		case "bottom right":
+			hugeTittiesContainer.style.bottom = "0px";
+			hugeTittiesContainer.style.right = "0px";
+			break;
 	}
 	
 	// Set the color for the background box
-	let labelColor = document.getElementById("label");
+	const labelColor = document.getElementById("label");
 	labelColor.style.background = barColor;
 	labelColor.style.color = noticeColor;
 
 	// Calculate starting time
-	let startingTime = adLength % singleAdLength;
+	const startingTime = adLength % singleAdLength;
 	if (startingTime == 0)
 		startingTime = singleAdLength;
 
 	// Estimate how many ads there should be
-	let adsTotal = Math.ceil(adLength / singleAdLength);
+	const adsTotal = Math.ceil(adLength / singleAdLength);
 	let adsRemaining = 1;
 
 	// Start the countdown timer
-	let adsRemainingContainer = document.getElementById("adsRemainingContainer");
-	let timerContainer = document.getElementById("timerContainer");
+	const adsRemainingContainer = document.getElementById("adsRemainingContainer");
+	const timerContainer = document.getElementById("timerContainer");
 	
 	if (playAudioOnAd) {
-		let audioPing = document.getElementById("adAudioNoise");
+		const audioPing = document.getElementById("adAudioNoise");
 		audioPing.play();
 	}
 
@@ -325,7 +405,7 @@ function HugeTittiesAnimation(adLength) {
 			ShowAdBoxData(false);
 			return;
 		}
-		adsRemainingContainer.innerText = adsRemaining + " of " + adsTotal;
+		adsRemainingContainer.innerText = `${adsRemaining} of ${adsTotal}`;
 		timerContainer.innerText = startingTime.toString().toHHMMSS();
 
 		// Show the widget
@@ -337,7 +417,7 @@ function ShowAdBoxData(isVisible) {
 	if (isVisible)
 		ShowMidRollCountdown(false);
 
-	let hugeTittiesContainer = document.getElementById("hugeTittiesContainer");
+	const hugeTittiesContainer = document.getElementById("hugeTittiesContainer");
 	var tl = new TimelineMax();
 	tl.to(hugeTittiesContainer, 0.5, { opacity: isVisible, ease: Linear.easeNone });
 }
@@ -350,9 +430,9 @@ function ClearMidrollTimerObj() {
 }
 
 function MidRollAnimation(countdownLength) {
-	let midRollContainer = document.getElementById("midRollContainer");
-	let midRollCountdownContainer = document.getElementById("midRollCountdownContainer");
-	let width = midRollContainer.getBoundingClientRect().width;
+	const midRollContainer = document.getElementById("midRollContainer");
+	const midRollCountdownContainer = document.getElementById("midRollCountdownContainer");
+	const width = midRollContainer.getBoundingClientRect().width;
 	
 	// Set the starting position of the countdown box
 	midRollContainer.style.right = -width + "px";
@@ -371,14 +451,14 @@ function MidRollAnimation(countdownLength) {
 			ShowMidRollCountdown(false);
 			return;
 		}
-	}, 1000)
+	}, 1000);
 }
 
 function ShowMidRollCountdown(isVisible) {
 	ClearMidrollTimerObj();
 	
-	let midRollContainer = document.getElementById("midRollContainer");
-	let width = midRollContainer.getBoundingClientRect().width;
+	const midRollContainer = document.getElementById("midRollContainer");
+	const width = midRollContainer.getBoundingClientRect().width;
 	var tl = new TimelineMax();
 
 	if (isVisible) {
@@ -393,7 +473,7 @@ function ShowMidRollCountdown(isVisible) {
 //////////////////////
 
 String.prototype.toHHMMSS = function () {
-	var sec_num = parseInt(this, 10); // don't forget the second param
+	const sec_num = parseInt(this, 10); // don't forget the second param
 	var hours = Math.floor(sec_num / 3600);
 	var minutes = Math.floor((sec_num - (hours * 3600)) / 60);
 	var seconds = sec_num - (hours * 3600) - (minutes * 60);
@@ -405,21 +485,8 @@ String.prototype.toHHMMSS = function () {
 	return minutes + ':' + seconds;
 }
 
-function RunOverlay() {
-	if (hasStarted)
-		return;
-	
-	let noticeTextFix = document.getElementById("label");
-	noticeTextFix.innerHTML = noticeText;
-	hasStarted = true;
-	if (usingEventSub)
-		RunTwitchEventSub();
-	else
-		RunTwitchPubSub();
-}
-
 function SetConnectionStatus(connected) {
-	let statusContainer = document.getElementById("statusContainer");
+	const statusContainer = document.getElementById("statusContainer");
 	if (connected) {
 		statusContainer.style.background = "#2FB774";
 		statusContainer.innerText = "Connected!";
@@ -433,7 +500,4 @@ function SetConnectionStatus(connected) {
 	}
 }
 
-if (IsHostedLocally())
-	RunOverlay()
-else
-	console.warn("This overlay widget needs to be hosted locally to work");
+AppRunner.start();
