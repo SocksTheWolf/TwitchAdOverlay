@@ -1,131 +1,130 @@
 <!DOCTYPE html>
 <html>
 <head>
-	<meta charset="UTF-8">
-	<style>
-	* {
-		margin: 0;
-		padding: 0;
-	}
+  <meta charset="UTF-8">
+  <style>
+  * {
+    margin: 0;
+    padding: 0;
+  }
 
-	#statusContainer {
-		text-transform: uppercase;
-		font-family: 'Metropolis';
-		font-style: italic;
-		font-weight: bold;
-		font-size: 30px;
-		width: 400px;
-		max-width: fit-content;
-		text-align: center;
-		background-color: #D12025;
-		color: white;
-		padding: 10px;
-		border-radius: 10px;
-		position: absolute;
-		top: 50%;
-		left: 50%;
-		transform: translate(-50%, -50%);
-	}
+  #statusContainer {
+    text-transform: uppercase;
+    font-family: 'Metropolis';
+    font-style: italic;
+    font-weight: bold;
+    font-size: 30px;
+    width: 400px;
+    max-width: fit-content;
+    text-align: center;
+    background-color: #D12025;
+    color: white;
+    padding: 10px;
+    border-radius: 10px;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+  }
 
-	#timerBar {
-		width: 0px;
-	}
+  #timerBar {
+    width: 0px;
+  }
 
-	#hugeTittiesContainer {
-		font-family: 'Metropolis';
-		font-weight: bold;
-		background-color: rgba(0, 0, 0, .4);
-		padding: 12px;
-		border-radius: 10px;
-		position: absolute;
-		margin: 50px;
-		opacity: 0;
-		display: table;
-	}
+  #hugeTittiesContainer {
+    font-family: 'Metropolis';
+    font-weight: bold;
+    background-color: rgba(0, 0, 0, .4);
+    padding: 12px;
+    border-radius: 10px;
+    position: absolute;
+    margin: 50px;
+    opacity: 0;
+    display: table;
+  }
 
-	#label {
-		font-size: 20px;
-		font-weight: bold;
-		max-width: fit-content;
-		text-align: center;
-		display: inline-block;
-		background-color: #a970ff;
-		color: #ffffff;
-		padding: 10px;
-		border-radius: 10px;
-		display: table-cell;
-	}
+  #label {
+    font-size: 20px;
+    font-weight: bold;
+    max-width: fit-content;
+    text-align: center;
+    display: inline-block;
+    background-color: #a970ff;
+    color: #ffffff;
+    padding: 10px;
+    border-radius: 10px;
+    display: table-cell;
+  }
 
-	#timerLabel {
-		font-size: 20px;
-		max-width: fit-content;
-		text-align: center;
-		display: inline-block;
-		color: white;
-		padding: 10px 0px 10px 10px;
-		display: table-cell;
-	}
+  #timerLabel {
+    font-size: 20px;
+    max-width: fit-content;
+    text-align: center;
+    display: inline-block;
+    color: white;
+    padding: 10px 0px 10px 10px;
+    display: table-cell;
+  }
 
-	#midRollContainer {
-		font-family: 'Metropolis';
-		font-size: 20px;
-		max-width: fit-content;
-		text-align: center;
-		display: inline-block;
-		background-color: #000000CC;
-		color: #FFFFFF;
-		padding: 10px 20px;
-		border-radius: 10px;
-		display: table-cell;
-		position: absolute;
-		bottom: 15%;
-		right: -100%;
-	}
+  #midRollContainer {
+    font-family: 'Metropolis';
+    font-size: 20px;
+    max-width: fit-content;
+    text-align: center;
+    display: inline-block;
+    background-color: #000000CC;
+    color: #FFFFFF;
+    padding: 10px 20px;
+    border-radius: 10px;
+    display: table-cell;
+    position: absolute;
+    bottom: 15%;
+    right: -100%;
+  }
 
-	#midRollCountdownContainer {
-		font-size: 40px;
-		font-weight: bold;
-		margin: 10px 0px 0px 0px;
-	}
-	
-	.hidden {
-		display: none;
-	}
-	#setupContainer {
-		text-align: center;
-	}
-	#setupContainer a {
-		padding: 0px 50px;
-		margin: 3px;
-		border: 2px solid DimGrey;
-		color: white;
-		background-color: DarkSlateGrey;
-		box-shadow: 0 5px 15px rgba(0,0,0,0.20);
-	}
-	</style>
-	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xz/fonts@1/serve/metropolis.min.css" />
-	<meta http-equiv="Content-Security-Policy" content="connect-src *" />
+  #midRollCountdownContainer {
+    font-size: 40px;
+    font-weight: bold;
+    margin: 10px 0px 0px 0px;
+  }
+  
+  .hidden {
+    display: none;
+  }
+  #setupContainer {
+    text-align: center;
+  }
+  #setupContainer a {
+    padding: 0px 50px;
+    margin: 3px;
+    border: 2px solid DimGrey;
+    color: white;
+    background-color: DarkSlateGrey;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.20);
+  }
+  </style>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xz/fonts@1/serve/metropolis.min.css" />
+  <meta http-equiv="Content-Security-Policy" content="connect-src *" />
 </head>
-
 <body>
-	<div id="setupContainer"></div>
-	<div id="statusContainer">Connecting...</div>
-	<div id="mainContainer">
-		<div id="timerBar"></div>
-	</div>
-	<div id="hugeTittiesContainer">
-		<div id="label">
-		</div>
-		<div id="timerLabel">
-			<span id="adsRemainingContainer"></span> • <span id="timerContainer"></span>
-		</div>
-	</div>
-	<div id="midRollContainer">
-		<div id="midRollStartingInLabel">Ads starting in...</div>
-		<div id="midRollCountdownContainer"></div>
-	</div>
-	<audio id="adAudioNoise" src="./sounds/adsPlaying.mp3"></audio>
-	<audio id="adMidrollStartingNoise" src="./sounds/adsIncoming.mp3"></audio>
+  <div id="setupContainer"></div>
+  <div id="statusContainer">Connecting...</div>
+  <div id="mainContainer">
+    <div id="timerBar"></div>
+  </div>
+  <div id="hugeTittiesContainer">
+    <div id="label">
+    </div>
+    <div id="timerLabel">
+      <span id="adsRemainingContainer"></span> • <span id="timerContainer"></span>
+    </div>
+  </div>
+  <div id="midRollContainer">
+    <div id="midRollStartingInLabel">Ads starting in...</div>
+    <div id="midRollCountdownContainer"></div>
+  </div>
+  <audio id="adAudioNoise" src="./sounds/adsPlaying.mp3"></audio>
+  <audio id="adMidrollStartingNoise" src="./sounds/adsIncoming.mp3"></audio>
 </body>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/1.18.0/TweenMax.min.js"></script>
