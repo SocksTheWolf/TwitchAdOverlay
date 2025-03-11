@@ -32,6 +32,8 @@ The audio files are located in the `sounds` folder, and can be swapped with any 
 
 There's no setting in the Twitch API that allows for querying that an ad is snoozed, so this is a limitation of the Twitch backend.
 
+If you would like to help with this, please vote on this [Twitch Uservoice Issue](https://twitch.uservoice.com/forums/310213-developers/suggestions/48744287-who-and-when-snoozed-ad-schedule-updated).
+
 ---
 
 ## Credits
