@@ -147,7 +147,7 @@ const AppRunner = {
           SetTimeoutForAdAlert(TimeUntilNextAlertInMs);
       } else {
         console.warn(`Failed to get next ad schedule, this may be because of invalid token or twitch error! ${xhr.status}`);
-        this.restart();
+        AppRunner.restart();
       }
       }
     };
@@ -197,9 +197,9 @@ const AppRunner = {
     if (this.es !== null) {
       console.log("Twitch EventSub is currently already created, recreating...");
       this.es.unsubscribe(this.adStartSubId).then(() => {
-        delete this.es;
-        this.es = null;
-        this.adStartSubId = "";
+        delete AppRunner.es;
+        AppRunner.es = null;
+        AppRunner.adStartSubId = "";
         AppRunner.runEventSub();
       }).catch(err => {
         console.error(`Encountered an error when trying to restart event sub ${err}`);
@@ -221,7 +221,7 @@ const AppRunner = {
       broadcaster_user_id: twitchUserID,
     }).then((data) => {
       console.log("Adbreak Subscription Successful");
-      this.adStartSubId = data.id;
+      AppRunner.adStartSubId = data.id;
       SetConnectionStatus(true);
       EnqueueNextScheduleAdPoll(true);
     }).catch(err => {
@@ -377,7 +377,7 @@ function HugeTittiesAnimation(adLength) {
   labelColor.style.color = noticeColor;
 
   // Calculate starting time
-  const startingTime = adLength % singleAdLength;
+  let startingTime = adLength % singleAdLength;
   if (startingTime == 0)
     startingTime = singleAdLength;
 
