@@ -34,6 +34,11 @@ There's no setting in the Twitch API that allows for querying that an ad is snoo
 
 If you would like to help with this, please vote on this [Twitch Uservoice Issue](https://twitch.uservoice.com/forums/310213-developers/suggestions/48744287-who-and-when-snoozed-ad-schedule-updated).
 
+### I get a random disconnected after a few hours of usage
+
+This is a bug in the eventsub library, that has been fixed in versions 5.1 and up.
+Update to one of these versions and this problem should be properly resolved.
+
 ---
 
 ## Credits
