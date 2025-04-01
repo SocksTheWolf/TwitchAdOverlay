@@ -227,8 +227,8 @@ const AppRunner = {
     }).catch(err => {
       console.error(`Failed to subscribe to ad start event ${err}`);
       SetConnectionStatus(false);
-	  // Attempt to recover.
-	  setTimeout(AppRunner.restart, 100);
+      // Attempt to recover.
+      setTimeout(AppRunner.restart, 100);
     });
     
     this.es.on("revocation", subscription => {
