@@ -222,6 +222,17 @@ const AppRunner = {
     AppRunner.es.on("channel.ad_break.begin", event => {
       AdRun({length: event.duration_seconds});
     });
+
+    AppRunner.es.on("connection_lost", (subs) => {
+      console.log("Websocket lost connection, resubscribing.")
+      Object.values(subs).forEach((sub) => {
+        console.log(`Attempting to resubscribe to ${sub.type}`);
+        AppRunner.es.subscribe(sub.type, sub.condition).then((data) => {
+          AppRunner.adStartSubId = data.id;
+          SetConnectionStatus(true);
+        });
+      });
+    });
     
     AppRunner.es.subscribe("channel.ad_break.begin", {
       broadcaster_user_id: twitchUserID,
