@@ -7,6 +7,7 @@ let adAlertForNextAdTimer = null;
 const twitchAuthLink = "https://make.twitchauth.work/login?template=07ef212b-ecd0-48a0-8392-bc28a2aa20a4";
 const twitchHelixUsersEndpoint = "https://api.twitch.tv/helix/users?login=";
 const twitchHelixAdEndpoint = "https://api.twitch.tv/helix/channels/ads?broadcaster_id=";
+const bypassOBSCheck = true;
 
 ///////////////////
 // CONFIG FIELDS //
@@ -27,6 +28,8 @@ let showMidRollCountdown = "No";	// No, Yes
 let aheadOfTimeAlert = 3; // Ahead of time countdown (in minutes)
 let pollForNextAdRate = 5; // Polling for next ad rate (in minutes)
 let makeTwitchAuthWorkToken = "";
+
+// there are a lot of console.errors here, this is because OBS by default only logs console.error, this can get changed later.
 
 /////////////////////
 //  APP HANDLING  //
@@ -127,28 +130,29 @@ const AppRunner = {
     
     xhr.onload = () => {
       if (xhr.readyState === 4) {
-      if (xhr.status === 200) {
-        const responseJson = JSON.parse(xhr.responseText);
-        // Cast timestamp into Date object
-        const responseTimeStamp = responseJson.data[0].next_ad_at;
-        var NextAdTime = 0;
-        if (typeof(responseTimeStamp) === "string")
-          NextAdTime = Date.parse(responseTimeStamp);
-        else
-        NextAdTime = responseTimeStamp * 1000; // Twitch may return as seconds
-        // Subtract some offset so we can be alerted ahead of time
-        // Create a new Date object
-        NextAdTime = new Date(new Date(NextAdTime) - (aheadOfTimeAlert * 60 * 1000));
-        const TimeUntilNextAlertInMs = NextAdTime - Date.now();
-        // Set another poll event for the next time to poll
-        EnqueueNextScheduleAdPoll();
-        // Set timer for next ad via the nextadtime
-        if (TimeUntilNextAlertInMs > 0)
-          SetTimeoutForAdAlert(TimeUntilNextAlertInMs);
-      } else {
-        console.warn(`Failed to get next ad schedule, this may be because of invalid token or twitch error! ${xhr.status}`);
-        AppRunner.restart();
-      }
+        if (xhr.status === 200) {
+          const responseJson = JSON.parse(xhr.responseText);
+          // Cast timestamp into Date object
+          const responseTimeStamp = responseJson.data[0].next_ad_at;
+          var NextAdTime = 0;
+          if (typeof(responseTimeStamp) === "string")
+            NextAdTime = Date.parse(responseTimeStamp);
+          else
+          NextAdTime = responseTimeStamp * 1000; // Twitch may return as seconds
+          // Subtract some offset so we can be alerted ahead of time
+          // Create a new Date object
+          NextAdTime = new Date(new Date(NextAdTime) - (aheadOfTimeAlert * 60 * 1000));
+          const TimeUntilNextAlertInMs = NextAdTime - Date.now();
+          // Set another poll event for the next time to poll
+          EnqueueNextScheduleAdPoll();
+          // Set timer for next ad via the nextadtime
+          if (TimeUntilNextAlertInMs > 0)
+            SetTimeoutForAdAlert(TimeUntilNextAlertInMs);
+        } else {
+          console.error(`Failed to get next ad schedule, this may be because of invalid token or twitch error! ${xhr.status}`);
+          ClearTimerForObject(pollForNextAdBreakTimer);
+          delayCall(AppRunner.restart);
+        }
       }
     };
     xhr.onerror = () => {
@@ -158,11 +162,12 @@ const AppRunner = {
     xhr.send();
   },
   runApp: function() {
+    console.error(`Run App`);
     return new Promise((resolve, reject) => {
       SetConnectionStatus(false);
-      if (IsHostedLocally()) {	
+      if (IsHostedLocally() || bypassOBSCheck) {	
         document.getElementById("label").innerHTML = noticeText;
-        AppRunner.runEventSub();
+        delayCall(AppRunner.runEventSub);
         resolve();
       } 
       else
@@ -179,10 +184,10 @@ const AppRunner = {
   },
   restart: function() {
     console.warn("Reauthing and restarting...");
-    this.getAuthToken().then(this.runApp).catch(err => {
+    AppRunner.getAuthToken().then(AppRunner.runApp).catch(err => {
       console.error("Failed to restart application!");
       if (err !== undefined && err !== null) {
-        console.error(`Error data: ${err}`);
+        console.error(`Restart error data: ${err}`);
       }
     });
   },
@@ -194,33 +199,34 @@ const AppRunner = {
     }
     
     // Clean up any old version of the eventSub listener
-    if (this.es !== null) {
-      console.log("Twitch EventSub is currently already created, recreating...");
-      this.es.unsubscribe(this.adStartSubId).then(() => {
+    if (AppRunner.es !== null) {
+      console.error("Twitch EventSub is currently already created, recreating...");
+      AppRunner.es.unsubscribe(AppRunner.adStartSubId).then(() => {
         delete AppRunner.es;
         AppRunner.es = null;
         AppRunner.adStartSubId = "";
-        AppRunner.runEventSub();
+        delayCall(AppRunner.runEventSub);
+        resolve();
       }).catch(err => {
         console.error(`Encountered an error when trying to restart event sub ${err}`);
       });
       return;
     }
   
-    console.log("Creating Twitch EventSub system");
-    this.es = new TES({listener: { type: "websocket" }, identity: {
+    console.error("Creating Twitch EventSub system");
+    AppRunner.es = new TES({listener: { type: "websocket" }, identity: {
       id: twitchClientId,
       accessToken: twitchOAuthToken,
     }});
     
-    this.es.on("channel.ad_break.begin", event => {
+    AppRunner.es.on("channel.ad_break.begin", event => {
       AdRun({length: event.duration_seconds});
     });
     
-    this.es.subscribe("channel.ad_break.begin", {
+    AppRunner.es.subscribe("channel.ad_break.begin", {
       broadcaster_user_id: twitchUserID,
     }).then((data) => {
-      console.log("Adbreak Subscription Successful");
+      console.error("Adbreak Subscription Successful");
       AppRunner.adStartSubId = data.id;
       SetConnectionStatus(true);
       EnqueueNextScheduleAdPoll(true);
@@ -228,10 +234,10 @@ const AppRunner = {
       console.error(`Failed to subscribe to ad start event ${err}`);
       SetConnectionStatus(false);
       // Attempt to recover.
-      setTimeout(AppRunner.restart, 100);
+      delayCall(AppRunner.restart);
     });
     
-    this.es.on("revocation", subscription => {
+    AppRunner.es.on("revocation", subscription => {
       console.error(`Subscription was revoked due to ${subscription.status}`);
       SetConnectionStatus(false);
     });
@@ -264,7 +270,7 @@ function EnqueueNextScheduleAdPoll(shouldGoNow=false) {
   // Clear Ad Poll Timer
   ClearTimerForObject(pollForNextAdBreakTimer);
   if (shouldGoNow)
-    AppRunner.getAdSchedule();
+    pollForNextAdBreakTimer = delayCall(AppRunner.getAdSchedule);
   else
     pollForNextAdBreakTimer = setTimeout(AppRunner.getAdSchedule, 1000 * 60 * pollForNextAdRate);
 }
@@ -274,7 +280,7 @@ function SetTimeoutForAdAlert(timeInMs) {
   adAlertForNextAdTimer = setTimeout(AdMidRoll, timeInMs);
 }
 
-function AdMidRoll(data) {
+function AdMidRoll() {
   if (!showMidRollCountdown)
     return;
 
@@ -289,7 +295,7 @@ function AdMidRoll(data) {
 // Ad Overlay progress bar
 function TimerBarAnimation(adLength) {
   const timerBar = document.getElementById("timerBar");
-  var tl;
+  var tl = new TimelineMax();
 
   // Set style
   timerBar.style.background = barColor;
@@ -306,9 +312,8 @@ function TimerBarAnimation(adLength) {
     timerBar.style.left = "0px";
 
     // Start Animation
-    tl = new TimelineMax();
     tl.to(timerBar, 0.5, { width: window.innerWidth + "px", ease: Cubic.ease })
-      .to(timerBar, adLength, { width: "0px", ease: Linear.easeNone })
+      .to(timerBar, adLength, { width: "0px", ease: Linear.easeNone });
     break;
 
   case "top":
@@ -317,9 +322,8 @@ function TimerBarAnimation(adLength) {
     timerBar.style.left = "0px";
 
     // Start Animation
-    tl = new TimelineMax();
     tl.to(timerBar, 0.5, { width: window.innerWidth + "px", ease: Cubic.ease })
-      .to(timerBar, adLength, { width: "0px", ease: Linear.easeNone })
+      .to(timerBar, adLength, { width: "0px", ease: Linear.easeNone });
     break;
 
   case "left":
@@ -328,9 +332,8 @@ function TimerBarAnimation(adLength) {
     timerBar.style.left = "0px";
 
     // Start Animation
-    tl = new TimelineMax();
     tl.to(timerBar, 0.5, { height: window.innerHeight + "px", ease: Cubic.ease })
-      .to(timerBar, adLength, { height: "0px", ease: Linear.easeNone })
+      .to(timerBar, adLength, { height: "0px", ease: Linear.easeNone });
     break;
 
   case "right":
@@ -339,9 +342,8 @@ function TimerBarAnimation(adLength) {
     timerBar.style.right = "0px";
 
     // Start Animation
-    tl = new TimelineMax();
     tl.to(timerBar, 0.5, { height: window.innerHeight + "px", ease: Cubic.ease })
-      .to(timerBar, adLength, { height: "0px", ease: Linear.easeNone })
+      .to(timerBar, adLength, { height: "0px", ease: Linear.easeNone });
     break;
   }
 }
@@ -464,9 +466,9 @@ function ShowMidRollCountdown(isVisible) {
   var tl = new TimelineMax();
 
   if (isVisible) {
-    tl.to(midRollContainer, 0.5, { right: "-10px", ease: Power1.easeInOut })
+    tl.to(midRollContainer, 0.5, { right: "-10px", ease: Power1.easeInOut });
   } else {
-    tl.to(midRollContainer, 0.5, { right: -width + "px", ease: Power1.easeInOut })
+    tl.to(midRollContainer, 0.5, { right: -width + "px", ease: Power1.easeInOut });
   }
 }
 
@@ -493,13 +495,19 @@ function SetConnectionStatus(connected) {
     statusContainer.style.background = "#2FB774";
     statusContainer.innerText = "Connected!";
     var tl = new TimelineMax();
-    tl.to(statusContainer, 2, { opacity: 0, ease: Linear.easeNone })
+    tl.to(statusContainer, 2, { opacity: 0, ease: Linear.easeNone });
     //.call(removeElement, [div]);
   } else {
     statusContainer.style.background = "#D12025";
     statusContainer.innerText = "Connecting...";
     statusContainer.style.opacity = 1;
   }
+}
+
+// This is a silly function to handle reload execution without having to worry about
+// the OBS stackframe reentry.
+function delayCall(func) {
+  return setTimeout(func, 5);
 }
 
 AppRunner.start();
