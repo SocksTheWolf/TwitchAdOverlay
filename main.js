@@ -34,11 +34,10 @@ let makeTwitchAuthWorkToken = "";
 ////////////////////
 const AppRunner = {
   es: null,
-  adStartSubId: "",
   loadSettings: function() {
     return new Promise((resolve, reject) => {
       try {
-        console.log("Attempting to read local data config");
+        console.debug("Attempting to read local data config");
         // Load up settings from the config system
         {
           barColor = configData.barColor;
@@ -59,6 +58,7 @@ const AppRunner = {
           
           makeTwitchAuthWorkToken = configData.makeTwitchAuthWorkToken.trim();
           noticeText = configData.noticeText;
+          document.getElementById("label").innerHTML = noticeText;
         }
         resolve();
       } catch (error) {
@@ -72,7 +72,7 @@ const AppRunner = {
     });
   },
   getAuthToken: function() {
-    console.log("Fetching new auth token...");
+    console.info("Fetching new auth token...");
     return new Promise((resolve, reject) => {
       let xhr = new XMLHttpRequest();
       xhr.open("POST", "https://make.twitchauth.work/get");
@@ -82,7 +82,7 @@ const AppRunner = {
           const data = JSON.parse(xhr.responseText);
           twitchClientId = data.client_id;
           if (data.status == "success") {
-            console.warn(`Setting the oauth token now! Is new: ${twitchOAuthToken != data.access_token}`);
+            console.debug(`Setting the oauth token now! Is new: ${twitchOAuthToken !== data.access_token}`);
             twitchOAuthToken = data.access_token;
           }
           resolve();
@@ -97,7 +97,7 @@ const AppRunner = {
     });
   },
   getChannelId: function() {
-    console.log("Fetching channel id for user");
+    console.info("Fetching channel id for user");
     return new Promise((resolve, reject) => {
       const helixLookup = twitchHelixUsersEndpoint + twitchUserName;
       let xhr = new XMLHttpRequest();
@@ -125,8 +125,9 @@ const AppRunner = {
     xhr.open("GET", helixLookup);
     xhr.setRequestHeader("Authorization", `Bearer ${twitchOAuthToken}`);
     xhr.setRequestHeader("Client-Id", twitchClientId);
+    const reqOAuth = twitchOAuthToken;
     
-    xhr.onload = () => {
+    xhr.onload = async () => {
       if (xhr.readyState === 4) {
         if (xhr.status === 200) {
           const responseJson = JSON.parse(xhr.responseText);
@@ -136,7 +137,7 @@ const AppRunner = {
           if (typeof(responseTimeStamp) === "string")
             NextAdTime = Date.parse(responseTimeStamp);
           else
-          NextAdTime = responseTimeStamp * 1000; // Twitch may return as seconds
+            NextAdTime = responseTimeStamp * 1000; // Twitch may return as seconds
           // Subtract some offset so we can be alerted ahead of time
           // Create a new Date object
           NextAdTime = new Date(new Date(NextAdTime) - (aheadOfTimeAlert * 60 * 1000));
@@ -147,30 +148,33 @@ const AppRunner = {
           if (TimeUntilNextAlertInMs > 0)
             SetTimeoutForAdAlert(TimeUntilNextAlertInMs);
         } else {
-          console.error(`Failed to get next ad schedule, this may be because of invalid token or twitch error! ${xhr.status}`);
-          ClearTimerForObject(pollForNextAdBreakTimer);
-          delayCall(AppRunner.restart);
+          // If the OAuth token has not changed during this request, then we need to go refresh it.
+          if (reqOAuth === twitchOAuthToken) {
+            console.warn(`Failed to get next ad schedule, token was invalidated! ${xhr.status}. Will refresh.`);
+            SetConnectionStatus(false);
+            await AppRunner.updateTESToken().then(() => {
+              EnqueueNextScheduleAdPoll();
+            });
+          } else {
+            console.warn(`Failed to get next ad schedule, ${xhr.status}`);
+          }
         }
       }
     };
     xhr.onerror = () => {
-      console.error(`Could not get the next ad schedule! ${xhr.statusText}`);
+      console.warn(`Could not get the next ad schedule! Retrying... Err: ${xhr.statusText}`);
       EnqueueNextScheduleAdPoll();
     };
     xhr.send();
   },
   runApp: function() {
-    console.log(`Run App`);
     return new Promise((resolve, reject) => {
       SetConnectionStatus(false);
-      if (IsHostedLocally() || bypassOBSCheck) {	
-        document.getElementById("label").innerHTML = noticeText;
-        delayCall(AppRunner.runEventSub);
+      if (IsHostedLocally() || bypassOBSCheck)
         resolve();
-      } 
       else
         reject("This overlay widget needs to be hosted locally to work");
-    });
+    }).then(AppRunner.runEventSub);
   },
   start: function() {
     this.loadSettings().then(this.getAuthToken)
@@ -181,7 +185,7 @@ const AppRunner = {
       });
   },
   restart: function() {
-    console.warn("Reauthing and restarting...");
+    console.debug("Reauthing and restarting...");
     AppRunner.getAuthToken().then(AppRunner.runApp).catch(err => {
       console.error("Failed to restart application!");
       if (err !== undefined && err !== null) {
@@ -195,25 +199,15 @@ const AppRunner = {
       console.error("The Twitch UserID is at a zero length!");
       return;
     }
-    
-    // Clean up any old version of the eventSub listener
-    if (AppRunner.es !== null) {
-      console.warn("Twitch EventSub is currently already created, recreating...");
-      AppRunner.es.unsubscribe(AppRunner.adStartSubId).catch(err => {
-        console.error(`Encountered an error when trying to restart event sub ${err}`);
-      }).finally(() => {
-        delete AppRunner.es;
-        AppRunner.es = null;
-        AppRunner.adStartSubId = "";
-        delayCall(AppRunner.runEventSub);
-      });
-      return;
-    }
-  
-    console.log("Creating Twitch EventSub system");
+
+    console.info("Creating Twitch EventSub system");
     AppRunner.es = new TES({listener: { type: "websocket" }, identity: {
       id: twitchClientId,
       accessToken: twitchOAuthToken,
+      onAuthenticationFailure: function() { return AppRunner.getAuthToken().then(() => {
+        console.debug("Auth token has been refreshed in TES");
+        return twitchOAuthToken;
+      });}
     }});
     
     AppRunner.es.on("channel.ad_break.begin", event => {
@@ -221,11 +215,9 @@ const AppRunner = {
     });
 
     AppRunner.es.on("connection_lost", (subs) => {
-      console.log("Websocket lost connection, resubscribing.")
       Object.values(subs).forEach((sub) => {
-        console.log(`Attempting to resubscribe to ${sub.type}`);
-        AppRunner.es.subscribe(sub.type, sub.condition).then((data) => {
-          AppRunner.adStartSubId = data.id;
+        AppRunner.es.subscribe(sub.type, sub.condition).then(() => {
+          console.debug(`Resubscribed to ${sub.type}`);
           SetConnectionStatus(true);
         });
       });
@@ -233,9 +225,8 @@ const AppRunner = {
     
     AppRunner.es.subscribe("channel.ad_break.begin", {
       broadcaster_user_id: twitchUserID,
-    }).then((data) => {
+    }).then(() => {
       console.log("Adbreak Subscription Successful");
-      AppRunner.adStartSubId = data.id;
       SetConnectionStatus(true);
       EnqueueNextScheduleAdPoll(true);
     }).catch(err => {
@@ -250,6 +241,27 @@ const AppRunner = {
       SetConnectionStatus(false);
     });
   },
+  updateTESToken: async function() {
+    if (AppRunner.es === null)
+      return;
+
+    const condition = { broadcaster_user_id: twitchUserID };
+    const resubscribe = () => AppRunner.es.subscribe("channel.ad_break.begin", condition);
+
+    SetConnectionStatus(false);
+    // Force an application call to subscriptions, this will cause TES to fail the request and force refresh the token
+    // throw a delayPromise on there as well for safety, but it's not actually needed.
+    await AppRunner.es.getSubscriptions().then(delayPromise);
+
+    // Then unsubscribe and resubscribe to the proper subscriptions. If not necessary, this will do nothing.
+    // Otherwise, this will put us back into the correct state.
+    return AppRunner.es.unsubscribe("channel.ad_break.begin", condition).then(resubscribe).catch((err) => {
+      console.error(`Got error on attempting to resub: ${err}`);
+    }).then(() => {
+      console.log("setting connection status back!");
+      SetConnectionStatus(true);
+    });
+  }
 };
 
 ///////////////////////
@@ -516,6 +528,10 @@ function SetConnectionStatus(connected) {
 // the OBS stackframe reentry.
 function delayCall(func) {
   return setTimeout(func, 5);
+}
+
+function delayPromise() {
+  return new Promise(resolve => setTimeout(resolve, 10));
 }
 
 AppRunner.start();

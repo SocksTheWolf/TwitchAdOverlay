@@ -28,7 +28,7 @@ function isNumeric(str) {
 
 function LoadExampleConfigIfNeeded() {
   if (typeof(configData) === "undefined") {
-    console.log("Example config is being loaded now");
+    console.warn("Example config is being loaded now");
     var script = document.createElement("script");
     script.src = "config_example.js";
     document.head.appendChild(script);
