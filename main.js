@@ -29,8 +29,6 @@ let aheadOfTimeAlert = 3; // Ahead of time countdown (in minutes)
 let pollForNextAdRate = 5; // Polling for next ad rate (in minutes)
 let makeTwitchAuthWorkToken = "";
 
-// there are a lot of console.errors here, this is because OBS by default only logs console.error, this can get changed later.
-
 /////////////////////
 //  APP HANDLING  //
 ////////////////////
@@ -162,7 +160,7 @@ const AppRunner = {
     xhr.send();
   },
   runApp: function() {
-    console.error(`Run App`);
+    console.log(`Run App`);
     return new Promise((resolve, reject) => {
       SetConnectionStatus(false);
       if (IsHostedLocally() || bypassOBSCheck) {	
@@ -200,20 +198,19 @@ const AppRunner = {
     
     // Clean up any old version of the eventSub listener
     if (AppRunner.es !== null) {
-      console.error("Twitch EventSub is currently already created, recreating...");
-      AppRunner.es.unsubscribe(AppRunner.adStartSubId).then(() => {
+      console.warn("Twitch EventSub is currently already created, recreating...");
+      AppRunner.es.unsubscribe(AppRunner.adStartSubId).catch(err => {
+        console.error(`Encountered an error when trying to restart event sub ${err}`);
+      }).finally(() => {
         delete AppRunner.es;
         AppRunner.es = null;
         AppRunner.adStartSubId = "";
         delayCall(AppRunner.runEventSub);
-        resolve();
-      }).catch(err => {
-        console.error(`Encountered an error when trying to restart event sub ${err}`);
       });
       return;
     }
   
-    console.error("Creating Twitch EventSub system");
+    console.log("Creating Twitch EventSub system");
     AppRunner.es = new TES({listener: { type: "websocket" }, identity: {
       id: twitchClientId,
       accessToken: twitchOAuthToken,
@@ -237,7 +234,7 @@ const AppRunner = {
     AppRunner.es.subscribe("channel.ad_break.begin", {
       broadcaster_user_id: twitchUserID,
     }).then((data) => {
-      console.error("Adbreak Subscription Successful");
+      console.log("Adbreak Subscription Successful");
       AppRunner.adStartSubId = data.id;
       SetConnectionStatus(true);
       EnqueueNextScheduleAdPoll(true);
