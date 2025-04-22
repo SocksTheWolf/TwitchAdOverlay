@@ -7,7 +7,6 @@ let adAlertForNextAdTimer = null;
 const twitchAuthLink = "https://make.twitchauth.work/login?template=07ef212b-ecd0-48a0-8392-bc28a2aa20a4";
 const twitchHelixUsersEndpoint = "https://api.twitch.tv/helix/users?login=";
 const twitchHelixAdEndpoint = "https://api.twitch.tv/helix/channels/ads?broadcaster_id=";
-const bypassOBSCheck = true;
 
 ///////////////////
 // CONFIG FIELDS //
@@ -170,7 +169,7 @@ const AppRunner = {
   runApp: function() {
     return new Promise((resolve, reject) => {
       SetConnectionStatus(false);
-      if (IsHostedLocally() || bypassOBSCheck)
+      if (IsHostedLocally())
         resolve();
       else
         reject("This overlay widget needs to be hosted locally to work");
