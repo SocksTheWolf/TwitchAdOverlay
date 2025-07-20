@@ -439,6 +439,11 @@ function HugeTittiesAnimation(adLength) {
 function ShowAdBoxData(isVisible) {
   if (isVisible)
     ShowMidRollCountdown(false);
+  else if (playAudioOnAd) {
+    // Play ad over noise
+    const adsOverAudioPing = document.getElementById("adFinishedNoise");
+    adsOverAudioPing.play();
+  }
 
   const hugeTittiesContainer = document.getElementById("hugeTittiesContainer");
   var tl = new TimelineMax();
