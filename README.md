@@ -46,7 +46,7 @@ Update to one of these versions and this problem should be properly resolved.
 
 - [Ding sound](https://freesound.org/people/LittleRainySeasons/sounds/335908/) from FreeSound user LittleRainySeasons under CC0
 - [Ads playing soon sound](https://freesound.org/people/Joao_Janz/sounds/478513/) from FreeSound user (Joao_Janz) under CC0
-- [Ads finished sound](https://freesound.org/people/Joao_Janz/sounds/478513/) from FreeSound user (Joao_Janz) under CC0
+- [Ads finished sound](https://freesound.org/people/Joao_Janz/sounds/504854/) from FreeSound user (Joao_Janz) under CC0
 - Original Streamer.Bot/StreamElements overlay code by [nutty](https://www.youtube.com/@nuttylmao)
 - IsNumeric from [this stackoverflow answer](https://stackoverflow.com/a/175787)
 - [TES library](https://github.com/mitchwadair/tesjs) for EventSub by mitchwadair
